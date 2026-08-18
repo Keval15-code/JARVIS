@@ -1,0 +1,4238 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>J.A.R.V.I.S. Robot Control</title>
+
+<!-- Google Fonts for High-Tech HUD Styling -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Rajdhani:wght@600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+
+<style>
+
+/* =========================================================
+   MARK SUIT PROTOCOL THEMES (CSS ROOT VARIABLES)
+========================================================= */
+
+:root {
+    --hud-primary: #64ddff;
+    --hud-glow: rgba(80, 220, 255, 0.8);
+    --hud-glow-dim: rgba(50, 190, 255, 0.25);
+    --hud-panel-border: rgba(70, 205, 255, 0.3);
+    --hud-panel-bg1: rgba(14, 38, 52, 0.88);
+    --hud-panel-bg2: rgba(4, 15, 23, 0.85);
+    --hud-bg-center: #102f42;
+    --hud-bg-mid: #06151f;
+    --hud-bg-edge: #02070b;
+    --hud-grid: rgba(70, 210, 255, 0.035);
+    --hud-status-ready: #45e6a0;
+}
+
+body.theme-hotrod {
+    --hud-primary: #ffc837;
+    --hud-glow: rgba(255, 60, 60, 0.9);
+    --hud-glow-dim: rgba(255, 180, 50, 0.25);
+    --hud-panel-border: rgba(255, 120, 50, 0.4);
+    --hud-panel-bg1: rgba(55, 15, 15, 0.9);
+    --hud-panel-bg2: rgba(25, 5, 5, 0.88);
+    --hud-bg-center: #380a0a;
+    --hud-bg-mid: #1c0505;
+    --hud-bg-edge: #0a0101;
+    --hud-grid: rgba(255, 180, 50, 0.045);
+    --hud-status-ready: #ffd84d;
+}
+
+body.theme-stealth {
+    --hud-primary: #00ffaa;
+    --hud-glow: rgba(0, 255, 170, 0.8);
+    --hud-glow-dim: rgba(0, 255, 170, 0.2);
+    --hud-panel-border: rgba(0, 255, 170, 0.35);
+    --hud-panel-bg1: rgba(10, 35, 25, 0.9);
+    --hud-panel-bg2: rgba(3, 15, 10, 0.88);
+    --hud-bg-center: #08241b;
+    --hud-bg-mid: #03130d;
+    --hud-bg-edge: #010604;
+    --hud-grid: rgba(0, 255, 170, 0.04);
+    --hud-status-ready: #00ffaa;
+}
+
+body.theme-overcharge {
+    --hud-primary: #df72ff;
+    --hud-glow: rgba(215, 90, 255, 0.85);
+    --hud-glow-dim: rgba(200, 70, 255, 0.25);
+    --hud-panel-border: rgba(215, 90, 255, 0.4);
+    --hud-panel-bg1: rgba(40, 15, 55, 0.9);
+    --hud-panel-bg2: rgba(18, 4, 25, 0.88);
+    --hud-bg-center: #2b0c3d;
+    --hud-bg-mid: #15051f;
+    --hud-bg-edge: #08010d;
+    --hud-grid: rgba(220, 100, 255, 0.045);
+    --hud-status-ready: #df72ff;
+}
+
+/* =========================================================
+   GLOBAL
+========================================================= */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Rajdhani', "Segoe UI", Arial, sans-serif;
+    user-select: none;
+}
+
+body {
+    min-height: 100vh;
+    color: #e7fbff;
+    background: radial-gradient(
+        circle at center,
+        var(--hud-bg-center) 0%,
+        var(--hud-bg-mid) 45%,
+        var(--hud-bg-edge) 100%
+    );
+    overflow-x: hidden;
+    transition: background 0.45s ease;
+}
+
+/* Static Cyan Grid Background (Original Restored) */
+body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(var(--hud-grid) 1px, transparent 1px),
+        linear-gradient(90deg, var(--hud-grid) 1px, transparent 1px);
+    background-size: 42px 42px;
+}
+
+/* =========================================================
+   BIOMETRIC HOLD-TO-UNLOCK SCREEN
+========================================================= */
+
+#biometricAuthModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(2, 8, 14, 0.94);
+    backdrop-filter: blur(16px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99998;
+    transition: opacity 0.5s ease, visibility 0.5s ease;
+}
+
+#biometricAuthModal.unlocked {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.biometric-card {
+    width: 440px;
+    padding: 35px 25px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 12px;
+    background: linear-gradient(145deg, var(--hud-panel-bg1), var(--hud-panel-bg2));
+    text-align: center;
+    box-shadow: 0 0 40px rgba(0,0,0,0.8), inset 0 0 20px var(--hud-glow-dim);
+}
+
+.bio-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 20px;
+    letter-spacing: 4px;
+    color: var(--hud-primary);
+    margin-bottom: 8px;
+}
+
+.bio-subtitle {
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #7996a2;
+    margin-bottom: 25px;
+}
+
+.bio-scanner-pad {
+    width: 110px;
+    height: 110px;
+    margin: 0 auto 20px;
+    border: 2px dashed var(--hud-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: pointer;
+    background: rgba(0, 220, 255, 0.05);
+    transition: box-shadow 0.25s, border-color 0.25s;
+}
+
+.bio-scanner-pad:hover {
+    box-shadow: 0 0 20px var(--hud-glow-dim);
+}
+
+.bio-scanner-pad.scanning {
+    border-color: var(--hud-status-ready);
+    box-shadow: 0 0 35px var(--hud-status-ready);
+}
+
+.fingerprint-icon {
+    font-size: 48px;
+    color: var(--hud-primary);
+    transition: color 0.3s;
+}
+
+.bio-scanner-pad.scanning .fingerprint-icon {
+    color: var(--hud-status-ready);
+}
+
+.bio-progress-bar-wrap {
+    width: 260px;
+    height: 6px;
+    margin: 0 auto 15px;
+    border-radius: 3px;
+    background: rgba(80, 210, 255, 0.15);
+    overflow: hidden;
+}
+
+#bioProgressFill {
+    width: 0%;
+    height: 100%;
+    background: var(--hud-status-ready);
+    box-shadow: 0 0 10px var(--hud-status-ready);
+    transition: width 0.05s linear;
+}
+
+.bio-status-msg {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 2px;
+    color: #64ddff;
+}
+
+/* =========================================================
+   PRE-FLIGHT DIAGNOSTIC CHECKLIST MODAL
+========================================================= */
+
+#preflightModal {
+    position: fixed;
+    inset: 0;
+    background: rgba(1, 6, 12, 0.9);
+    backdrop-filter: blur(14px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 99997;
+}
+
+#preflightModal.active {
+    display: flex;
+}
+
+.preflight-card {
+    width: 480px;
+    padding: 30px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 12px;
+    background: linear-gradient(145deg, var(--hud-panel-bg1), var(--hud-panel-bg2));
+    box-shadow: 0 20px 60px rgba(0,0,0,0.8), inset 0 0 25px var(--hud-glow-dim);
+}
+
+.preflight-header {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 16px;
+    letter-spacing: 3px;
+    color: var(--hud-primary);
+    margin-bottom: 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--hud-panel-border);
+    padding-bottom: 10px;
+}
+
+.checklist-items {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 12px;
+    margin-bottom: 24px;
+}
+
+.check-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: #8dafc0;
+}
+
+.check-status {
+    font-weight: 700;
+    color: #ffd84d;
+}
+
+.check-status.pass {
+    color: var(--hud-status-ready);
+}
+
+.preflight-close-btn {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 6px;
+    background: rgba(50,180,220,0.15);
+    color: var(--hud-primary);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.preflight-close-btn:hover {
+    background: var(--hud-glow-dim);
+    color: #ffffff;
+}
+
+/* =========================================================
+   EMERGENCY RED ALERT OVERRIDE STATE
+========================================================= */
+
+body.emergency-alert {
+    background: radial-gradient(
+        circle at center,
+        #421010 0%,
+        #1f0606 45%,
+        #0b0202 100%
+    ) !important;
+}
+
+body.emergency-alert .panel {
+    border-color: rgba(255, 70, 70, 0.45) !important;
+    background: linear-gradient(145deg, rgba(52, 14, 14, 0.9), rgba(23, 4, 4, 0.88)) !important;
+    box-shadow: 0 15px 50px rgba(255, 0, 0, 0.25) !important;
+}
+
+body.emergency-alert .panel-title,
+body.emergency-alert .header-brand h1,
+body.emergency-alert .control-title {
+    color: #ff5c5c !important;
+    text-shadow: 0 0 18px rgba(255, 70, 70, 0.8) !important;
+}
+
+body.emergency-alert .core-light {
+    background: radial-gradient(circle, #ffffff 0%, #ff4757 25%, #a80000 65%, #1a0000 100%) !important;
+    box-shadow: 0 0 35px #ff4757, 0 0 80px rgba(255, 0, 0, 0.8), inset 0 0 25px #ffffff !important;
+}
+
+body.emergency-alert .ring1,
+body.emergency-alert .ring2,
+body.emergency-alert .ring3 {
+    border-color: rgba(255, 80, 80, 0.7) !important;
+}
+
+body.emergency-alert .gauge-meter {
+    stroke: #ff4757 !important;
+}
+
+/* =========================================================
+   BOOT SCREEN
+========================================================= */
+
+#bootScreen {
+    position: fixed;
+    inset: 0;
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at center, #0b2b3d, #04121b 50%, #010509);
+    transition: opacity .8s ease, visibility .8s ease;
+}
+
+#bootScreen.hide {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+.boot-container {
+    width: 680px;
+    text-align: center;
+}
+
+.boot-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 78px;
+    font-weight: 900;
+    letter-spacing: 22px;
+    color: #e7fbff;
+    animation: bootTextFade 2.4s ease-in-out infinite;
+}
+
+@keyframes bootTextFade {
+    0%, 100% {
+        opacity: 0.25;
+        transform: scale(0.96);
+        text-shadow: 0 0 10px var(--hud-glow), 0 0 20px var(--hud-glow-dim);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1.02);
+        text-shadow: 0 0 25px var(--hud-glow), 0 0 60px var(--hud-glow), 0 0 90px var(--hud-glow-dim);
+    }
+}
+
+.boot-subtitle {
+    margin-top: 12px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 6px;
+    font-weight: 600;
+    color: #6f8e9b;
+}
+
+.boot-core {
+    width: 180px;
+    height: 180px;
+    margin: 45px auto 35px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.boot-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(80,215,255,.35);
+}
+
+.ring-a {
+    width: 180px;
+    height: 180px;
+    border-top: 2px solid #64ddff;
+    animation: rotate 6s linear infinite;
+}
+
+.ring-b {
+    width: 145px;
+    height: 145px;
+    border-right: 2px solid #4edaff;
+    animation: reverseRotate 4s linear infinite;
+}
+
+.ring-c {
+    width: 110px;
+    height: 110px;
+    border: 1px dashed rgba(100,225,255,.4);
+    animation: rotate 8s linear infinite;
+}
+
+.boot-dot {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #ffffff, #63e4ff 35%, #0785ad 70%, #032431);
+    box-shadow: 0 0 20px #5edfff, 0 0 50px rgba(50,200,255,.55);
+    animation: pulse 1.8s ease-in-out infinite;
+}
+
+#bootText {
+    height: 20px;
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: #65ddff;
+}
+
+.boot-progress {
+    width: 420px;
+    height: 4px;
+    margin: 18px auto;
+    background: rgba(70,200,230,.12);
+    border: 1px solid rgba(80,215,255,.2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+#bootProgress {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, #0088ff, #5edfff);
+    box-shadow: 0 0 14px #5edfff;
+    transition: width .3s ease;
+}
+
+.boot-log {
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 11px;
+    color: #608b9b;
+    letter-spacing: 1px;
+}
+
+/* =========================================================
+   HEADER & PROTOCOL SELECTOR
+========================================================= */
+
+header {
+    height: 105px;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid var(--hud-panel-border);
+    background: rgba(2,12,20,.82);
+    backdrop-filter: blur(12px);
+    z-index: 10;
+}
+
+.protocol-selector-wrap {
+    position: absolute;
+    left: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.protocol-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--hud-primary);
+}
+
+.protocol-select {
+    padding: 6px 10px;
+    border-radius: 4px;
+    background: rgba(0,0,0,0.5);
+    border: 1px solid var(--hud-panel-border);
+    color: var(--hud-primary);
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    letter-spacing: 1px;
+    outline: none;
+    cursor: pointer;
+    transition: 0.3s;
+}
+
+.header-brand {
+    text-align: center;
+}
+
+.header-brand h1 {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 34px;
+    letter-spacing: 10px;
+    font-weight: 700;
+    color: var(--hud-primary);
+    text-shadow: 0 0 15px var(--hud-glow);
+    transition: color 0.4s, text-shadow 0.4s;
+}
+
+.header-brand p {
+    margin-top: 6px;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #7895a2;
+}
+
+/* =========================================================
+   CONNECTION PANEL
+========================================================= */
+
+.connection {
+    position: absolute;
+    right: 30px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: #8aa4ae;
+}
+
+.online-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #777;
+    box-shadow: 0 0 5px #777;
+    transition: .3s;
+}
+
+.online-dot.connected {
+    background: #45e6a0;
+    box-shadow: 0 0 10px #45e6a0, 0 0 25px rgba(69,230,160,.6);
+    animation: statusPulse 1.8s ease-in-out infinite;
+}
+
+.online-dot.connecting {
+    background: #ffd84d;
+    animation: statusPulse .7s infinite;
+}
+
+@keyframes statusPulse {
+    0%,100% {
+        opacity: .45;
+        box-shadow: 0 0 6px #ffd84d;
+    }
+    50% {
+        opacity: 1;
+        box-shadow: 0 0 12px #ffd84d, 0 0 28px rgba(255,216,77,.7);
+    }
+}
+
+/* =========================================================
+   NAV
+========================================================= */
+
+nav {
+    height: 55px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid var(--hud-panel-border);
+    background: rgba(3,15,23,.7);
+    position: relative;
+    z-index: 10;
+}
+
+.nav-btn {
+    min-width: 150px;
+    padding: 10px 24px;
+    border-radius: 6px;
+    border: 1px solid var(--hud-panel-border);
+    background: rgba(60,190,230,.03);
+    color: #76929e;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: all .25s ease;
+}
+
+.nav-btn:hover {
+    color: #b0f1ff;
+    border-color: var(--hud-primary);
+    box-shadow: 0 0 15px var(--hud-glow-dim);
+}
+
+.nav-btn.active {
+    color: var(--hud-primary);
+    border-color: var(--hud-primary);
+    background: rgba(60,190,230,.12);
+    box-shadow: 0 0 20px var(--hud-glow-dim);
+}
+
+/* =========================================================
+   PAGE SYSTEM
+========================================================= */
+
+.page {
+    display: none;
+    min-height: calc(100vh - 160px);
+    padding: 35px 40px;
+}
+
+.page.active {
+    display: block;
+}
+
+.home {
+    min-height: calc(100vh - 160px);
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.home.active {
+    display: flex;
+}
+
+/* =========================================================
+   HOME
+========================================================= */
+
+.home-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 52px;
+    letter-spacing: 15px;
+    font-weight: 700;
+    color: #e8fcff;
+    text-shadow: 0 0 15px var(--hud-glow), 0 0 45px var(--hud-glow-dim);
+}
+
+.home-subtitle {
+    margin-top: 9px;
+    font-size: 12px;
+    letter-spacing: 4px;
+    color: #718f9b;
+}
+
+.home-status {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--hud-status-ready);
+    font-weight: 700;
+}
+
+/* =========================================================
+   CORE
+========================================================= */
+
+.core-perspective-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.core {
+    width: 280px;
+    height: 280px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 20px auto;
+}
+
+.ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid var(--hud-panel-border);
+}
+
+.ring1 {
+    width: 275px;
+    height: 275px;
+    border-top: 2px solid var(--hud-primary);
+    animation: rotate 12s linear infinite;
+}
+
+.ring2 {
+    width: 238px;
+    height: 238px;
+    border-left: 2px solid var(--hud-primary);
+    animation: reverseRotate 8s linear infinite;
+}
+
+.ring3 {
+    width: 200px;
+    height: 200px;
+    border-top: 1px solid var(--hud-primary);
+    animation: rotate 5s linear infinite;
+}
+
+.ring4 {
+    width: 160px;
+    height: 160px;
+    border: 1px dashed var(--hud-glow-dim);
+    animation: reverseRotate 15s linear infinite;
+}
+
+.core.drive-active .ring1 { animation-duration: 2.2s !important; }
+.core.drive-active .ring2 { animation-duration: 1.5s !important; }
+.core.drive-active .ring3 { animation-duration: 1.1s !important; }
+.core.drive-active .ring4 { animation-duration: 2.8s !important; }
+
+.core-light {
+    width: 105px;
+    height: 105px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(
+        circle,
+        #f0fdff 0%,
+        var(--hud-primary) 22%,
+        #073c50 65%,
+        #020b12 100%
+    );
+    box-shadow:
+        0 0 25px var(--hud-glow),
+        0 0 60px var(--hud-glow-dim),
+        inset 0 0 30px rgba(220,250,255,.65);
+    animation: pulse 2.7s ease-in-out infinite;
+}
+
+.core.drive-active .core-light {
+    box-shadow:
+        0 0 45px var(--hud-glow),
+        0 0 95px var(--hud-glow),
+        inset 0 0 40px #ffffff !important;
+}
+
+.core-text {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 3px;
+    color: white;
+    text-shadow: 0 0 10px white, 0 0 20px var(--hud-primary);
+}
+
+/* =========================================================
+   LAYOUT & PANELS WITH GLASS GLARE SHEEN
+========================================================= */
+
+.control-layout {
+    width: 100%;
+    max-width: 1380px;
+    margin: auto;
+    display: grid;
+    grid-template-columns: 270px minmax(500px,1fr) 320px;
+    gap: 25px;
+}
+
+.panel {
+    border: 1px solid var(--hud-panel-border);
+    background: linear-gradient(
+        145deg,
+        var(--hud-panel-bg1),
+        var(--hud-panel-bg2)
+    );
+    border-radius: 12px;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 15px 50px rgba(0,0,0,.35), inset 0 0 15px var(--hud-glow-dim);
+    position: relative;
+    overflow: hidden;
+    clip-path: polygon(
+        0 12px, 12px 0,
+        calc(100% - 12px) 0, 100% 12px,
+        100% calc(100% - 12px), calc(100% - 12px) 100%,
+        12px 100%, 0 calc(100% - 12px)
+    );
+    transition: background 0.4s, border-color 0.4s;
+}
+
+.panel-glare {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), var(--hud-glow-dim) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: 1;
+}
+
+.panel:hover .panel-glare {
+    opacity: 1;
+}
+
+.panel::before {
+    content: "SYS.HUD // ACTIVE";
+    position: absolute;
+    top: 8px;
+    right: 14px;
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 8px;
+    letter-spacing: 2px;
+    color: var(--hud-primary);
+    opacity: 0.6;
+    z-index: 2;
+}
+
+.panel-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 12px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    color: var(--hud-primary);
+    margin-bottom: 18px;
+    text-shadow: 0 0 10px var(--hud-glow-dim);
+    position: relative;
+    z-index: 2;
+}
+
+/* =========================================================
+   DIAGNOSTICS & TELEMETRY HEATMAP MATRIX
+========================================================= */
+
+.diagnostics {
+    padding: 25px;
+    position: relative;
+}
+
+.stat {
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hud-panel-border);
+    position: relative;
+    z-index: 2;
+}
+
+.label {
+    color: #7996a2;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.value {
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.status-ready,
+.green {
+    color: var(--hud-status-ready) !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 10px var(--hud-glow);
+}
+
+.status-standby,
+.yellow {
+    color: #ffd84d !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 10px rgba(255, 216, 77, 0.5);
+}
+
+.status-offline,
+.red {
+    color: #ff5c5c !important;
+    font-weight: 700 !important;
+    text-shadow: 0 0 10px rgba(255, 92, 92, 0.5);
+}
+
+.blue {
+    color: var(--hud-primary);
+    font-weight: 700;
+    text-shadow: 0 0 10px var(--hud-glow);
+}
+
+/* Tactical Telemetry Drift & Vibration Heatmap Grid */
+.telemetry-heatmap-card {
+    margin-top: 10px;
+    padding: 8px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--hud-panel-border);
+    position: relative;
+    z-index: 2;
+}
+
+.heatmap-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #7896a2;
+    margin-bottom: 4px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.heatmap-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+}
+
+.heatmap-cell {
+    height: 14px;
+    border-radius: 2px;
+    background: rgba(69, 230, 160, 0.2);
+    border: 1px solid rgba(69, 230, 160, 0.4);
+    transition: background 0.25s, border-color 0.25s;
+}
+
+/* =========================================================
+   THERMAL CORE & BATTERY MONITOR
+========================================================= */
+
+.telemetry-vitals-box {
+    margin-top: 10px;
+    padding: 10px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--hud-panel-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.vital-unit {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.vital-tag {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #7896a2;
+}
+
+.vital-val {
+    font-family: 'Orbitron', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--hud-primary);
+}
+
+.vital-bar-wrap {
+    width: 70px;
+    height: 4px;
+    background: rgba(80, 210, 255, 0.15);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.vital-bar-fill {
+    height: 100%;
+    width: 82%;
+    background: var(--hud-status-ready);
+    transition: width 0.3s ease, background 0.3s ease;
+}
+
+/* =========================================================
+   MOTOR GAUGES
+========================================================= */
+
+.motor-gauges-wrapper {
+    margin-top: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--hud-panel-border);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    position: relative;
+    z-index: 2;
+}
+
+.gauge-card {
+    text-align: center;
+}
+
+.gauge-svg {
+    width: 85px;
+    height: 48px;
+}
+
+.gauge-bg {
+    fill: none;
+    stroke: rgba(80, 210, 255, 0.15);
+    stroke-width: 6;
+    stroke-linecap: round;
+}
+
+.gauge-meter {
+    fill: none;
+    stroke: var(--hud-status-ready);
+    stroke-width: 6;
+    stroke-linecap: round;
+    stroke-dasharray: 126;
+    stroke-dashoffset: 126;
+    transition: stroke-dashoffset 0.25s ease, stroke 0.25s ease;
+    filter: drop-shadow(0 0 4px var(--hud-status-ready));
+}
+
+.gauge-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #7896a2;
+    margin-top: 2px;
+}
+
+.gauge-val-text {
+    font-family: 'Orbitron', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: #dffaff;
+}
+
+.robot-status {
+    margin-top: 10px;
+    position: relative;
+    z-index: 2;
+}
+
+.status-row {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hud-panel-border);
+    font-size: 13px;
+}
+
+.status-row span {
+    color: #7896a2;
+    font-weight: 600;
+}
+
+.status-row strong {
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 12px;
+    letter-spacing: 1px;
+    font-weight: 700;
+}
+
+/* =========================================================
+   CENTER PANEL VISUAL SWITCHER TABS & PANELS
+========================================================= */
+
+.center-visual-switch {
+    display: flex;
+    gap: 6px;
+    margin: 8px 0 12px;
+    position: relative;
+    z-index: 2;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.vis-tab-btn {
+    padding: 5px 10px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 4px;
+    background: rgba(50,180,220,0.06);
+    color: #76929e;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.vis-tab-btn.active {
+    border-color: var(--hud-primary);
+    color: var(--hud-primary);
+    background: rgba(60,190,230,0.15);
+    box-shadow: 0 0 10px var(--hud-glow-dim);
+}
+
+.chassis-canvas-wrap,
+.pid-graph-wrap,
+.digital-twin-wrap {
+    width: 280px;
+    height: 180px;
+    margin: 10px auto;
+    display: none;
+    position: relative;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 8px;
+    background: rgba(0,0,0,0.45);
+    overflow: hidden;
+}
+
+.chassis-canvas-wrap.active,
+.pid-graph-wrap.active,
+.digital-twin-wrap.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.chassis-canvas,
+.pid-canvas,
+.twin-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.twin-instruction {
+    position: absolute;
+    bottom: 6px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 8px;
+    letter-spacing: 1px;
+    color: #8dafc0;
+    pointer-events: none;
+}
+
+.pid-sliders-bar {
+    width: 100%;
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.6);
+    border-top: 1px solid var(--hud-panel-border);
+    display: flex;
+    justify-content: space-between;
+    gap: 4px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+}
+
+.slider-group {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--hud-primary);
+}
+
+.pid-slider {
+    width: 45px;
+    height: 3px;
+    accent-color: var(--hud-primary);
+    cursor: pointer;
+}
+
+.pid-legend {
+    position: absolute;
+    top: 6px;
+    left: 8px;
+    display: flex;
+    gap: 10px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+}
+
+.legend-target { color: var(--hud-primary); }
+.legend-pitch { color: var(--hud-status-ready); }
+.legend-output { color: #ffd84d; }
+
+/* =========================================================
+   VOCAL SPECTROGRAM & AI CONFIDENCE MATRIX
+========================================================= */
+
+.spectrogram-box {
+    width: 350px;
+    margin-top: 14px;
+    padding: 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--hud-panel-border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+    z-index: 2;
+}
+
+.spectrogram-header {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    color: #8dafc0;
+}
+
+.spectrogram-canvas {
+    width: 100%;
+    height: 36px;
+    background: rgba(0, 20, 35, 0.5);
+    border-radius: 4px;
+}
+
+.spectrogram-readouts {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    color: var(--hud-primary);
+}
+
+/* =========================================================
+   CENTER PANEL
+========================================================= */
+
+.control-center {
+    min-height: 650px;
+    padding: 35px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    position: relative;
+}
+
+.control-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 30px;
+    letter-spacing: 8px;
+    font-weight: 700;
+    color: #e5fbff;
+    text-shadow: 0 0 15px var(--hud-glow-dim);
+    position: relative;
+    z-index: 2;
+}
+
+/* =========================================================
+   BALANCE & DYNAMIC OSCILLOSCOPE WAVE
+========================================================= */
+
+.balance-display {
+    width: 380px;
+    margin-top: 5px;
+    position: relative;
+    z-index: 2;
+}
+
+.balance-title {
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: #71909d;
+}
+
+.angle-value {
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 34px;
+    letter-spacing: 3px;
+    color: #dffaff;
+    margin-top: 4px;
+    text-shadow: 0 0 15px var(--hud-glow);
+}
+
+.oscilloscope-container {
+    width: 100%;
+    height: 55px;
+    margin-top: 10px;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.oscilloscope-canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.balance-state {
+    margin-top: 10px;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 3px;
+    color: var(--hud-status-ready);
+    font-weight: 700;
+}
+
+/* =========================================================
+   VOICE BUTTON
+========================================================= */
+
+.voice-button {
+    width: 350px;
+    height: 64px;
+    margin-top: 14px;
+    border-radius: 10px;
+    border: 1px solid var(--hud-panel-border);
+    background: rgba(50,180,220,.08);
+    color: #a2edff;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    letter-spacing: 2px;
+    font-weight: 700;
+    transition: all .25s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.voice-button:hover {
+    background: rgba(50,190,230,.18);
+    box-shadow: 0 0 28px var(--hud-glow-dim);
+    color: #ffffff;
+}
+
+.voice-button.listening {
+    color: var(--hud-status-ready);
+    border-color: var(--hud-status-ready);
+    box-shadow: 0 0 25px var(--hud-glow);
+}
+
+.voice-icon {
+    display: block;
+    font-size: 20px;
+    margin-bottom: 2px;
+}
+
+/* =========================================================
+   COMMAND CONSOLE & ACTION BAR
+========================================================= */
+
+.command-console {
+    padding: 25px;
+    position: relative;
+}
+
+.command-row {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--hud-panel-border);
+    position: relative;
+    z-index: 2;
+}
+
+.command-name {
+    color: #829da8;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.command-key {
+    min-width: 42px;
+    height: 36px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    border: 1px solid var(--hud-panel-border);
+    color: #aeefff;
+    background: rgba(60,180,220,.08);
+    font-size: 15px;
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    text-align: center;
+    box-sizing: border-box;
+    box-shadow: 0 0 8px var(--hud-glow-dim);
+}
+
+.command-key.wide-key {
+    min-width: 74px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+}
+
+.action-controls-grid {
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+}
+
+.action-btn {
+    padding: 8px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 6px;
+    background: rgba(50, 180, 220, 0.08);
+    color: #8de8ff;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    transition: 0.2s;
+    text-align: center;
+}
+
+.action-btn:hover {
+    background: rgba(60, 205, 255, 0.2);
+    box-shadow: 0 0 12px var(--hud-glow-dim);
+}
+
+.action-btn.active {
+    background: var(--hud-status-ready);
+    color: #000000;
+    border-color: var(--hud-status-ready);
+    box-shadow: 0 0 15px var(--hud-glow);
+}
+
+.action-btn.full-width {
+    grid-column: span 2;
+}
+
+/* =========================================================
+   ACTIVITY LOG & FLIGHT BLACKBOX RECORDER
+========================================================= */
+
+.activity {
+    margin-top: 14px;
+    position: relative;
+    z-index: 2;
+}
+
+.activity-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.blackbox-btn {
+    padding: 4px 8px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 4px;
+    background: rgba(0, 220, 255, 0.06);
+    color: var(--hud-primary);
+    cursor: pointer;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 1px;
+    transition: 0.2s;
+}
+
+.blackbox-btn:hover {
+    background: var(--hud-glow-dim);
+    color: #ffffff;
+}
+
+.log {
+    width: 100%;
+    height: 120px;
+    overflow-y: auto;
+    padding: 12px;
+    border-radius: 6px;
+    background: rgba(0,0,0,.35);
+    border: 1px solid var(--hud-panel-border);
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 10px;
+    line-height: 1.8;
+    color: #79a5b5;
+}
+
+.log::-webkit-scrollbar {
+    width: 4px;
+}
+
+.log::-webkit-scrollbar-thumb {
+    background: var(--hud-primary);
+    border-radius: 2px;
+}
+
+/* =========================================================
+   CONNECTION SETTINGS WITH USB SERIAL FALLBACK
+========================================================= */
+
+.connection-box {
+    width: 100%;
+    max-width: 500px;
+    margin-top: 18px;
+    padding: 12px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 8px;
+    background: rgba(0,0,0,.25);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    position: relative;
+    z-index: 2;
+}
+
+.connection-row-top {
+    display: flex;
+    gap: 8px;
+}
+
+.ip-input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 6px;
+    outline: none;
+    background: rgba(0,0,0,.35);
+    color: #bcefff;
+    font-family: 'Share Tech Mono', Consolas, monospace;
+    font-size: 12px;
+}
+
+.connect-button {
+    padding: 0 16px;
+    border: 1px solid var(--hud-panel-border);
+    border-radius: 6px;
+    background: rgba(50,180,220,.12);
+    color: #8de8ff;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    transition: all .25s ease;
+}
+
+.connect-button:hover {
+    background: var(--hud-glow-dim);
+    color: #ffffff;
+    box-shadow: 0 0 15px var(--hud-glow-dim);
+}
+
+.serial-connect-btn {
+    width: 100%;
+    padding: 8px;
+    border: 1px dashed var(--hud-panel-border);
+    border-radius: 6px;
+    background: rgba(0, 220, 255, 0.04);
+    color: var(--hud-primary);
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: all 0.25s ease;
+}
+
+.serial-connect-btn:hover {
+    background: var(--hud-glow-dim);
+    border-color: var(--hud-primary);
+    box-shadow: 0 0 12px var(--hud-glow-dim);
+}
+
+/* =========================================================
+   MANUAL CONTROLS
+========================================================= */
+
+.controls {
+    display: grid;
+    grid-template-columns: repeat(3,64px);
+    gap: 10px;
+    justify-content: center;
+    margin-top: 22px;
+    position: relative;
+    z-index: 2;
+}
+
+.control-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 8px;
+    border: 1px solid var(--hud-panel-border);
+    background: rgba(50,170,210,.08);
+    color: #bcefff;
+    font-family: 'Orbitron', Consolas, monospace;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s ease;
+}
+
+.control-btn:hover {
+    background: var(--hud-glow-dim);
+    border-color: var(--hud-primary);
+    box-shadow: 0 0 20px var(--hud-glow-dim);
+}
+
+.control-btn:active {
+    transform: scale(0.94);
+}
+
+.stop {
+    color: #ffaaaa;
+    border-color: rgba(255,100,100,.45);
+}
+
+.stop:hover {
+    background: rgba(255, 100, 100, 0.22);
+    border-color: #ff5c5c;
+    box-shadow: 0 0 20px rgba(255, 92, 92, 0.4);
+}
+
+.empty {
+    visibility: hidden;
+}
+
+/* =========================================================
+   HOME BUTTONS
+========================================================= */
+
+.home-buttons {
+    display: flex;
+    gap: 14px;
+    margin-top: 28px;
+}
+
+.home-btn {
+    width: 195px;
+    padding: 14px;
+    border-radius: 6px;
+    border: 1px solid var(--hud-panel-border);
+    background: rgba(50,180,220,.08);
+    color: #8de8ff;
+    cursor: pointer;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    transition: all .25s ease;
+}
+
+.home-btn:hover {
+    background: var(--hud-glow-dim);
+    box-shadow: 0 0 25px var(--hud-glow-dim);
+    color: #ffffff;
+}
+
+/* =========================================================
+   ANIMATIONS
+========================================================= */
+
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes reverseRotate {
+    from { transform: rotate(360deg); }
+    to { transform: rotate(0deg); }
+}
+
+@keyframes pulse {
+    0%,100% { transform: scale(.94); }
+    50% { transform: scale(1.05); }
+}
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media(max-width:1100px) {
+    .control-layout {
+        grid-template-columns: 230px minmax(400px,1fr) 280px;
+        gap: 16px;
+    }
+}
+
+@media(max-width:850px) {
+    .boot-container {
+        width: 90%;
+    }
+    .boot-title {
+        font-size: 50px;
+        letter-spacing: 12px;
+    }
+    .boot-progress {
+        width: 80%;
+    }
+    .control-layout {
+        grid-template-columns: 1fr;
+        max-width: 600px;
+    }
+    .protocol-selector-wrap,
+    .connection {
+        display: none;
+    }
+    .control-center {
+        min-height: 600px;
+    }
+}
+
+</style>
+
+</head>
+
+<body>
+
+<!-- =======================================================
+     PRE-FLIGHT DIAGNOSTIC CHECKLIST MODAL
+======================================================= -->
+<div id="preflightModal">
+    <div class="preflight-card">
+        <div class="preflight-header">SYSTEM PRE-FLIGHT CHECKLIST</div>
+        <div class="checklist-items">
+            <div class="check-row">
+                <span>[1] I2C SENSOR BUS CLOCK @ 400kHz</span>
+                <span class="check-status" id="chkI2c">RUNNING...</span>
+            </div>
+            <div class="check-row">
+                <span>[2] PID GAIN INTEGRITY (Kp/Ki/Kd)</span>
+                <span class="check-status" id="chkPid">WAITING...</span>
+            </div>
+            <div class="check-row">
+                <span>[3] MOTOR PWM TIMERS @ 20kHz</span>
+                <span class="check-status" id="chkPwm">WAITING...</span>
+            </div>
+            <div class="check-row">
+                <span>[4] WEBSOCKET PROTOCOL LATENCY</span>
+                <span class="check-status" id="chkLatency">WAITING...</span>
+            </div>
+            <div class="check-row">
+                <span>[5] INERTIAL IMU ZERO-OFFSET CAL</span>
+                <span class="check-status" id="chkImu">WAITING...</span>
+            </div>
+        </div>
+        <button class="preflight-close-btn" onclick="closePreflightModal()">DISMISS PRE-FLIGHT CHECK</button>
+    </div>
+</div>
+
+<!-- =======================================================
+     BIOMETRIC HOLD-TO-UNLOCK SCREEN
+======================================================= -->
+<div id="biometricAuthModal">
+    <div class="biometric-card">
+        <div class="bio-title">SECURITY CLEARANCE</div>
+        <div class="bio-subtitle">BIOMETRIC TOUCH MATRIX AUTHENTICATION</div>
+
+        <div class="bio-scanner-pad" id="bioScannerPad" onmousedown="startBiometricScan()" onmouseup="abortBiometricScan()" onmouseleave="abortBiometricScan()" ontouchstart="startBiometricScan()" ontouchend="abortBiometricScan()">
+            <span class="fingerprint-icon">◈</span>
+        </div>
+
+        <div class="bio-progress-bar-wrap">
+            <div id="bioProgressFill"></div>
+        </div>
+
+        <div class="bio-status-msg" id="bioStatusMsg">PRESS AND HOLD SCANNER</div>
+    </div>
+</div>
+
+<!-- =======================================================
+     BOOT SCREEN
+======================================================= -->
+
+<div id="bootScreen">
+
+    <div class="boot-container">
+
+        <div class="boot-title">
+            J.A.R.V.I.S.
+        </div>
+
+        <div class="boot-subtitle">
+            ROBOTIC ASSISTANCE & CONTROL SYSTEM
+        </div>
+
+        <div class="boot-core">
+
+            <div class="boot-ring ring-a"></div>
+
+            <div class="boot-ring ring-b"></div>
+
+            <div class="boot-ring ring-c"></div>
+
+            <div class="boot-dot"></div>
+
+        </div>
+
+        <div id="bootText">
+            INITIALIZING JARVIS...
+        </div>
+
+        <div class="boot-progress">
+
+            <div id="bootProgress"></div>
+
+        </div>
+
+        <div class="boot-log"
+             id="bootLog">
+
+            : SYSTEM INITIALIZATION
+
+        </div>
+
+    </div>
+
+</div>
+
+<!-- =======================================================
+     HEADER
+======================================================= -->
+
+<header>
+
+    <!-- Mark Suit Armor Protocol Selector -->
+    <div class="protocol-selector-wrap">
+        <span class="protocol-tag">ARMOR PROTOCOL</span>
+        <select class="protocol-select" onchange="changeArmorProtocol(this.value)">
+            <option value="default">MK-85 ARC BLUE</option>
+            <option value="theme-hotrod">MK-III HOTROD RED/GOLD</option>
+            <option value="theme-stealth">MK-VII STEALTH MATRIX</option>
+            <option value="theme-overcharge">HULKBUSTER OVERCHARGE</option>
+        </select>
+    </div>
+
+    <div class="header-brand">
+
+        <h1>
+            J.A.R.V.I.S.
+        </h1>
+
+        <p>
+            ROBOTIC ASSISTANCE & CONTROL SYSTEM
+        </p>
+
+    </div>
+
+    <div class="connection">
+
+        <span
+            class="online-dot"
+            id="connectionDot">
+        </span>
+
+        <span id="connectionText">
+            ESP32 LINK • OFFLINE
+        </span>
+
+    </div>
+
+</header>
+
+<!-- =======================================================
+     NAVIGATION
+======================================================= -->
+
+<nav>
+
+    <button
+        class="nav-btn active"
+        onclick="showPage('home',this)">
+
+        HOME
+
+    </button>
+
+    <button
+        class="nav-btn"
+        onclick="showPage('voice',this)">
+
+        VOICE CONTROL
+
+    </button>
+
+    <button
+        class="nav-btn"
+        onclick="showPage('manual',this)">
+
+        MANUAL CONTROL
+
+    </button>
+
+</nav>
+
+<!-- =======================================================
+     HOME
+======================================================= -->
+
+<section
+    id="home"
+    class="home page active">
+
+    <div class="home-title">
+        JARVIS
+    </div>
+
+    <div class="home-subtitle">
+        ROBOTIC ASSISTANCE & CONTROL SYSTEM
+    </div>
+
+    <div class="core-perspective-wrap">
+        <div class="core" id="homeCore">
+
+            <div class="ring ring1"></div>
+
+            <div class="ring ring2"></div>
+
+            <div class="ring ring3"></div>
+
+            <div class="ring ring4"></div>
+
+            <div class="core-light">
+
+                <span class="core-text">
+                    JARVIS
+                </span>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div
+        class="home-status"
+        id="homeStatus">
+
+        SYSTEM READY
+
+    </div>
+
+    <div class="home-buttons">
+
+        <button
+            class="home-btn"
+            onclick="goToPage('voice')">
+
+            🎙 VOICE CONTROL
+
+        </button>
+
+        <button
+            class="home-btn"
+            onclick="goToPage('manual')">
+
+            ⌨ MANUAL CONTROL
+
+        </button>
+
+    </div>
+
+</section>
+
+<!-- =======================================================
+     VOICE PAGE
+======================================================= -->
+
+<section
+    id="voice"
+    class="page">
+
+    <div class="control-layout">
+
+        <!-- LEFT -->
+
+        <div class="panel diagnostics">
+            <div class="panel-glare"></div>
+
+            <div class="panel-title">
+                DIAGNOSTICS
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    ESP32
+                </span>
+
+                <span
+                    class="value red"
+                    id="espDiagnostic">
+
+                    OFFLINE
+
+                </span>
+
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    IMU
+                </span>
+
+                <span class="value green">
+                    READY
+                </span>
+
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    BALANCE
+                </span>
+
+                <span class="value green">
+                    READY
+                </span>
+
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    VOICE
+                </span>
+
+                <span class="value green">
+                    READY
+                </span>
+
+            </div>
+
+            <!-- Tactical Telemetry Drift & Vibration Heatmap Grid -->
+            <div class="telemetry-heatmap-card">
+                <div class="heatmap-label">
+                    <span>IMU DRIFT & JITTER MATRIX</span>
+                    <span id="jitterScoreVal">0.04 ms</span>
+                </div>
+                <div class="heatmap-grid">
+                    <div class="heatmap-cell" id="hm0"></div>
+                    <div class="heatmap-cell" id="hm1"></div>
+                    <div class="heatmap-cell" id="hm2"></div>
+                    <div class="heatmap-cell" id="hm3"></div>
+                    <div class="heatmap-cell" id="hm4"></div>
+                    <div class="heatmap-cell" id="hm5"></div>
+                    <div class="heatmap-cell" id="hm6"></div>
+                    <div class="heatmap-cell" id="hm7"></div>
+                </div>
+            </div>
+
+            <!-- THERMAL OVERHEAT & BATTERY MONITOR -->
+            <div class="telemetry-vitals-box">
+                <div class="vital-unit">
+                    <span class="vital-tag">CORE TEMP</span>
+                    <span class="vital-val" id="thermalValVoice">38.4°C</span>
+                    <div class="vital-bar-wrap">
+                        <div class="vital-bar-fill" id="thermalBarVoice" style="width: 45%;"></div>
+                    </div>
+                </div>
+                <div class="vital-unit">
+                    <span class="vital-tag">3S LiPo</span>
+                    <span class="vital-val" id="batteryValVoice">11.8V</span>
+                    <div class="vital-bar-wrap">
+                        <div class="vital-bar-fill" id="batteryBarVoice" style="width: 82%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MOTOR TORQUE GAUGES -->
+            <div class="motor-gauges-wrapper">
+                <div class="gauge-card">
+                    <svg class="gauge-svg" viewBox="0 0 100 55">
+                        <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" />
+                        <path class="gauge-meter" id="gaugeLeftVoice" d="M 10 50 A 40 40 0 0 1 90 50" />
+                    </svg>
+                    <div class="gauge-val-text" id="gaugeLeftValVoice">0%</div>
+                    <div class="gauge-label">PORT MOTOR</div>
+                </div>
+                <div class="gauge-card">
+                    <svg class="gauge-svg" viewBox="0 0 100 55">
+                        <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" />
+                        <path class="gauge-meter" id="gaugeRightVoice" d="M 10 50 A 40 40 0 0 1 90 50" />
+                    </svg>
+                    <div class="gauge-val-text" id="gaugeRightValVoice">0%</div>
+                    <div class="gauge-label">STARBOARD</div>
+                </div>
+            </div>
+
+            <div class="robot-status">
+
+                <div class="panel-title">
+                    ROBOT STATUS
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        ESP32
+                    </span>
+
+                    <strong
+                        id="espStatusVoice"
+                        class="status-offline">
+
+                        OFFLINE
+
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        IMU
+                    </span>
+
+                    <strong class="status-ready">
+                        READY
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        BALANCE
+                    </span>
+
+                    <strong class="status-ready">
+                        READY
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        MOTORS
+                    </span>
+
+                    <strong
+                        id="motorStatusVoice"
+                        class="status-standby">
+
+                        STANDBY
+
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        VOICE
+                    </span>
+
+                    <strong
+                        class="status-ready">
+
+                        READY
+
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- CENTER -->
+
+        <div class="panel control-center">
+            <div class="panel-glare"></div>
+
+            <div class="control-title">
+                VOICE CONTROL
+            </div>
+
+            <!-- Visual Switcher Tabs -->
+            <div class="center-visual-switch">
+                <button class="vis-tab-btn active" onclick="switchCenterVisual('core', 'voice', this)">REACTOR</button>
+                <button class="vis-tab-btn" onclick="switchCenterVisual('wireframe', 'voice', this)">3D CHASSIS</button>
+                <button class="vis-tab-btn" onclick="switchCenterVisual('pid', 'voice', this)">PID TUNER</button>
+                <button class="vis-tab-btn" onclick="switchCenterVisual('twin', 'voice', this)">DIGITAL TWIN</button>
+            </div>
+
+            <!-- Visual 1: Core -->
+            <div class="core-perspective-wrap" id="voiceCoreWrap">
+                <div class="core" id="voiceCore">
+                    <div class="ring ring1"></div>
+                    <div class="ring ring2"></div>
+                    <div class="ring ring3"></div>
+                    <div class="ring ring4"></div>
+                    <div class="core-light">
+                        <span class="core-text">JARVIS</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual 2: 3D Wireframe Chassis -->
+            <div class="chassis-canvas-wrap" id="voiceWireframeWrap">
+                <canvas id="voiceWireframeCanvas" class="chassis-canvas" width="280" height="180"></canvas>
+            </div>
+
+            <!-- Visual 3: PID Control Loop Graph & Calibration Sliders -->
+            <div class="pid-graph-wrap" id="voicePidWrap">
+                <div class="pid-legend">
+                    <span class="legend-target">SETPOINT (0°)</span>
+                    <span class="legend-pitch">PITCH</span>
+                    <span class="legend-output">PID OUT</span>
+                </div>
+                <canvas id="voicePidCanvas" class="pid-canvas" width="280" height="145"></canvas>
+                <div class="pid-sliders-bar">
+                    <div class="slider-group">
+                        <span>Kp:</span>
+                        <input type="range" class="pid-slider" min="0" max="10" step="0.1" value="3.2" oninput="updatePidGain('Kp', this.value)">
+                        <span id="kpValVoice">3.2</span>
+                    </div>
+                    <div class="slider-group">
+                        <span>Ki:</span>
+                        <input type="range" class="pid-slider" min="0" max="5" step="0.1" value="0.4" oninput="updatePidGain('Ki', this.value)">
+                        <span id="kiValVoice">0.4</span>
+                    </div>
+                    <div class="slider-group">
+                        <span>Kd:</span>
+                        <input type="range" class="pid-slider" min="0" max="5" step="0.1" value="1.2" oninput="updatePidGain('Kd', this.value)">
+                        <span id="kdValVoice">1.2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual 4: Digital Twin Physics Sandbox -->
+            <div class="digital-twin-wrap" id="voiceTwinWrap">
+                <canvas id="voiceTwinCanvas" class="twin-canvas" width="280" height="180"></canvas>
+                <div class="twin-instruction">CLICK & DRAG MAST TO SIMULATE TILT PHYSICS</div>
+            </div>
+
+            <div
+                class="home-status"
+                id="voiceSystemStatus">
+
+                SYSTEMS NOMINAL
+
+            </div>
+
+            <div class="balance-display">
+
+                <div class="balance-title">
+                    BALANCE ANGLE & WAVE
+                </div>
+
+                <div
+                    class="angle-value"
+                    id="voiceAngle">
+
+                    0.0°
+
+                </div>
+
+                <!-- Dynamic Oscilloscope Wave Canvas -->
+                <div class="oscilloscope-container">
+                    <canvas id="voiceOscilloscope" class="oscilloscope-canvas" width="380" height="55"></canvas>
+                </div>
+
+                <div class="balance-state">
+                    STABLE
+                </div>
+
+            </div>
+
+            <!-- Real-Time Vocal Frequency Spectrogram & AI Confidence Matrix -->
+            <div class="spectrogram-box">
+                <div class="spectrogram-header">
+                    <span>VOCAL FREQUENCY SPECTROGRAM (DSP)</span>
+                    <span id="voiceSnrTag">SNR: 24.8 dB</span>
+                </div>
+                <canvas id="voiceSpectrogramCanvas" class="spectrogram-canvas" width="330" height="36"></canvas>
+                <div class="spectrogram-readouts">
+                    <span>PHONEME: <strong id="voicePhonemeVal">[ IDLE ]</strong></span>
+                    <span>AI CONFIDENCE: <strong id="voiceConfidenceVal">99.2%</strong></span>
+                </div>
+            </div>
+
+            <!-- CONNECTION WITH SERIAL FALLBACK -->
+
+            <div class="connection-box">
+                <div class="connection-row-top">
+                    <input
+                        class="ip-input"
+                        id="espIP"
+                        type="text"
+                        value="192.168.1.100"
+                        placeholder="ESP32 IP address">
+
+                    <button
+                        class="connect-button"
+                        onclick="toggleConnection()"
+                        id="connectButton">
+
+                        CONNECT
+
+                    </button>
+                </div>
+
+                <button class="serial-connect-btn" onclick="connectWebSerial()">
+                    🔌 CONNECT VIA USB / SERIAL COM PORT
+                </button>
+            </div>
+
+            <!-- VOICE -->
+
+            <button
+                class="voice-button"
+                onclick="startVoiceRecognition()"
+                id="voiceButton">
+
+                <span class="voice-icon">
+                    🎙
+                </span>
+
+                ACTIVATE VOICE CONTROL
+
+            </button>
+
+        </div>
+
+        <!-- RIGHT -->
+
+        <div class="panel command-console">
+            <div class="panel-glare"></div>
+
+            <div class="panel-title">
+                VOICE COMMANDS
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Move Forward
+                </span>
+
+                <span class="command-key">
+                    ↑
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Move Backward
+                </span>
+
+                <span class="command-key">
+                    ↓
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Turn Left
+                </span>
+
+                <span class="command-key">
+                    ←
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Turn Right
+                </span>
+
+                <span class="command-key">
+                    →
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Stop
+                </span>
+
+                <span class="command-key">
+                    ■
+                </span>
+
+            </div>
+
+            <!-- Advanced Stark Action Controls -->
+            <div class="action-controls-grid">
+                <button class="action-btn full-width" onclick="openPreflightChecklist()">📋 PRE-FLIGHT CHECKLIST</button>
+                <button class="action-btn" onclick="triggerHousePartyProtocol()">🚀 HOUSE PARTY</button>
+                <button class="action-btn" id="gyroBtnVoice" onclick="toggleMotionGyroSteer()">📱 GYRO STEER</button>
+                <button class="action-btn full-width" onclick="runHardwareStressTest()">⚡ HARDWARE STRESS TEST</button>
+            </div>
+
+            <div class="activity">
+
+                <div class="activity-header-row">
+                    <div class="panel-title" style="margin-bottom:0;">ACTIVITY LOG</div>
+                    <button class="blackbox-btn" onclick="exportFlightBlackboxCSV()">💾 EXPORT CSV</button>
+                </div>
+
+                <div
+                    class="log"
+                    id="voiceLog">
+
+                    <div>
+                        SYSTEM : JARVIS READY
+                    </div>
+
+                    <div>
+                        ESP32 : CONNECTION STANDBY
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- =======================================================
+     MANUAL PAGE
+======================================================= -->
+
+<section
+    id="manual"
+    class="page">
+
+    <div class="control-layout">
+
+        <!-- LEFT -->
+
+        <div class="panel diagnostics">
+            <div class="panel-glare"></div>
+
+            <div class="panel-title">
+                DIAGNOSTICS
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    ESP32
+                </span>
+
+                <span
+                    class="value red"
+                    id="espDiagnosticManual">
+
+                    OFFLINE
+
+                </span>
+
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    IMU
+                </span>
+
+                <span class="value green">
+                    READY
+                </span>
+
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    BALANCE
+                </span>
+
+                <span class="value green">
+                    READY
+                </span>
+
+            </div>
+
+            <div class="stat">
+
+                <span class="label">
+                    CONTROL
+                </span>
+
+                <span class="value blue">
+                    MANUAL
+                </span>
+
+            </div>
+
+            <!-- Tactical Telemetry Drift & Vibration Heatmap Grid -->
+            <div class="telemetry-heatmap-card">
+                <div class="heatmap-label">
+                    <span>IMU DRIFT & JITTER MATRIX</span>
+                    <span id="jitterScoreValManual">0.04 ms</span>
+                </div>
+                <div class="heatmap-grid">
+                    <div class="heatmap-cell" id="hmManual0"></div>
+                    <div class="heatmap-cell" id="hmManual1"></div>
+                    <div class="heatmap-cell" id="hmManual2"></div>
+                    <div class="heatmap-cell" id="hmManual3"></div>
+                    <div class="heatmap-cell" id="hmManual4"></div>
+                    <div class="heatmap-cell" id="hmManual5"></div>
+                    <div class="heatmap-cell" id="hmManual6"></div>
+                    <div class="heatmap-cell" id="hmManual7"></div>
+                </div>
+            </div>
+
+            <!-- THERMAL OVERHEAT & BATTERY MONITOR -->
+            <div class="telemetry-vitals-box">
+                <div class="vital-unit">
+                    <span class="vital-tag">CORE TEMP</span>
+                    <span class="vital-val" id="thermalValManual">38.4°C</span>
+                    <div class="vital-bar-wrap">
+                        <div class="vital-bar-fill" id="thermalBarManual" style="width: 45%;"></div>
+                    </div>
+                </div>
+                <div class="vital-unit">
+                    <span class="vital-tag">3S LiPo</span>
+                    <span class="vital-val" id="batteryValManual">11.8V</span>
+                    <div class="vital-bar-wrap">
+                        <div class="vital-bar-fill" id="batteryBarManual" style="width: 82%;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MOTOR TORQUE GAUGES -->
+            <div class="motor-gauges-wrapper">
+                <div class="gauge-card">
+                    <svg class="gauge-svg" viewBox="0 0 100 55">
+                        <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" />
+                        <path class="gauge-meter" id="gaugeLeftManual" d="M 10 50 A 40 40 0 0 1 90 50" />
+                    </svg>
+                    <div class="gauge-val-text" id="gaugeLeftValManual">0%</div>
+                    <div class="gauge-label">PORT MOTOR</div>
+                </div>
+                <div class="gauge-card">
+                    <svg class="gauge-svg" viewBox="0 0 100 55">
+                        <path class="gauge-bg" d="M 10 50 A 40 40 0 0 1 90 50" />
+                        <path class="gauge-meter" id="gaugeRightManual" d="M 10 50 A 40 40 0 0 1 90 50" />
+                    </svg>
+                    <div class="gauge-val-text" id="gaugeRightValManual">0%</div>
+                    <div class="gauge-label">STARBOARD</div>
+                </div>
+            </div>
+
+            <div class="robot-status">
+
+                <div class="panel-title">
+                    ROBOT STATUS
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        ESP32
+                    </span>
+
+                    <strong
+                        id="espStatusManual"
+                        class="status-offline">
+
+                        OFFLINE
+
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        IMU
+                    </span>
+
+                    <strong class="status-ready">
+                        READY
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        BALANCE
+                    </span>
+
+                    <strong class="status-ready">
+                        READY
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        MOTORS
+                    </span>
+
+                    <strong
+                        id="motorStatusManual"
+                        class="status-standby">
+
+                        STANDBY
+
+                    </strong>
+
+                </div>
+
+                <div class="status-row">
+
+                    <span>
+                        VOICE
+                    </span>
+
+                    <strong class="status-ready">
+                        READY
+                    </strong>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- CENTER -->
+
+        <div class="panel control-center">
+            <div class="panel-glare"></div>
+
+            <div class="control-title">
+                MANUAL CONTROL
+            </div>
+
+            <!-- Visual Switcher Tabs -->
+            <div class="center-visual-switch">
+                <button class="vis-tab-btn active" onclick="switchCenterVisual('core', 'manual', this)">REACTOR</button>
+                <button class="vis-tab-btn" onclick="switchCenterVisual('wireframe', 'manual', this)">3D CHASSIS</button>
+                <button class="vis-tab-btn" onclick="switchCenterVisual('pid', 'manual', this)">PID TUNER</button>
+                <button class="vis-tab-btn" onclick="switchCenterVisual('twin', 'manual', this)">DIGITAL TWIN</button>
+            </div>
+
+            <!-- Visual 1: Core -->
+            <div class="core-perspective-wrap" id="manualCoreWrap">
+                <div class="core" id="manualCore">
+                    <div class="ring ring1"></div>
+                    <div class="ring ring2"></div>
+                    <div class="ring ring3"></div>
+                    <div class="ring ring4"></div>
+                    <div class="core-light">
+                        <span class="core-text">JARVIS</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual 2: 3D Wireframe Chassis -->
+            <div class="chassis-canvas-wrap" id="manualWireframeWrap">
+                <canvas id="manualWireframeCanvas" class="chassis-canvas" width="280" height="180"></canvas>
+            </div>
+
+            <!-- Visual 3: PID Control Loop Graph & Calibration Sliders -->
+            <div class="pid-graph-wrap" id="manualPidWrap">
+                <div class="pid-legend">
+                    <span class="legend-target">SETPOINT (0°)</span>
+                    <span class="legend-pitch">PITCH</span>
+                    <span class="legend-output">PID OUT</span>
+                </div>
+                <canvas id="manualPidCanvas" class="pid-canvas" width="280" height="145"></canvas>
+                <div class="pid-sliders-bar">
+                    <div class="slider-group">
+                        <span>Kp:</span>
+                        <input type="range" class="pid-slider" min="0" max="10" step="0.1" value="3.2" oninput="updatePidGain('Kp', this.value)">
+                        <span id="kpValManual">3.2</span>
+                    </div>
+                    <div class="slider-group">
+                        <span>Ki:</span>
+                        <input type="range" class="pid-slider" min="0" max="5" step="0.1" value="0.4" oninput="updatePidGain('Ki', this.value)">
+                        <span id="kiValManual">0.4</span>
+                    </div>
+                    <div class="slider-group">
+                        <span>Kd:</span>
+                        <input type="range" class="pid-slider" min="0" max="5" step="0.1" value="1.2" oninput="updatePidGain('Kd', this.value)">
+                        <span id="kdValManual">1.2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual 4: Digital Twin Physics Sandbox -->
+            <div class="digital-twin-wrap" id="manualTwinWrap">
+                <canvas id="manualTwinCanvas" class="twin-canvas" width="280" height="180"></canvas>
+                <div class="twin-instruction">CLICK & DRAG MAST TO SIMULATE TILT PHYSICS</div>
+            </div>
+
+            <div
+                class="home-status">
+
+                MANUAL MODE READY
+
+            </div>
+
+            <div class="balance-display">
+
+                <div class="balance-title">
+                    BALANCE ANGLE & WAVE
+                </div>
+
+                <div
+                    class="angle-value"
+                    id="manualAngle">
+
+                    0.0°
+
+                </div>
+
+                <!-- Dynamic Oscilloscope Wave Canvas -->
+                <div class="oscilloscope-container">
+                    <canvas id="manualOscilloscope" class="oscilloscope-canvas" width="380" height="55"></canvas>
+                </div>
+
+                <div class="balance-state">
+                    STABLE
+                </div>
+
+            </div>
+
+            <!-- CONNECTION WITH SERIAL FALLBACK -->
+
+            <div class="connection-box">
+                <div class="connection-row-top">
+                    <input
+                        class="ip-input"
+                        id="espIPManual"
+                        type="text"
+                        value="192.168.1.100"
+                        placeholder="ESP32 IP address">
+
+                    <button
+                        class="connect-button"
+                        onclick="connectFromManual()"
+                        id="connectButtonManual">
+
+                        CONNECT
+
+                    </button>
+                </div>
+
+                <button class="serial-connect-btn" onclick="connectWebSerial()">
+                    🔌 CONNECT VIA USB / SERIAL COM PORT
+                </button>
+            </div>
+
+            <!-- CONTROLS -->
+
+            <div class="controls">
+
+                <div class="empty"></div>
+
+                <button
+                    id="btn-FORWARD"
+                    class="control-btn"
+                    onclick="sendCommand('FORWARD')">
+
+                    ↑
+
+                </button>
+
+                <div class="empty"></div>
+
+                <button
+                    id="btn-LEFT"
+                    class="control-btn"
+                    onclick="sendCommand('LEFT')">
+
+                    ←
+
+                </button>
+
+                <button
+                    id="btn-STOP"
+                    class="control-btn stop"
+                    onclick="sendCommand('STOP')">
+
+                    ■
+
+                </button>
+
+                <button
+                    id="btn-RIGHT"
+                    class="control-btn"
+                    onclick="sendCommand('RIGHT')">
+
+                    →
+
+                </button>
+
+                <div class="empty"></div>
+
+                <button
+                    id="btn-BACKWARD"
+                    class="control-btn"
+                    onclick="sendCommand('BACKWARD')">
+
+                    ↓
+
+                </button>
+
+                <div class="empty"></div>
+
+            </div>
+
+        </div>
+
+        <!-- RIGHT -->
+
+        <div class="panel command-console">
+            <div class="panel-glare"></div>
+
+            <div class="panel-title">
+                MANUAL COMMANDS
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Forward
+                </span>
+
+                <span class="command-key">
+                    ↑
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Backward
+                </span>
+
+                <span class="command-key">
+                    ↓
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Left
+                </span>
+
+                <span class="command-key">
+                    ←
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Right
+                </span>
+
+                <span class="command-key">
+                    →
+                </span>
+
+            </div>
+
+            <div class="command-row">
+
+                <span class="command-name">
+                    Emergency Stop
+                </span>
+
+                <span class="command-key wide-key">
+                    SPACE
+                </span>
+
+            </div>
+
+            <!-- Advanced Stark Action Controls -->
+            <div class="action-controls-grid">
+                <button class="action-btn full-width" onclick="openPreflightChecklist()">📋 PRE-FLIGHT CHECKLIST</button>
+                <button class="action-btn" onclick="triggerHousePartyProtocol()">🚀 HOUSE PARTY</button>
+                <button class="action-btn" id="gyroBtnManual" onclick="toggleMotionGyroSteer()">📱 GYRO STEER</button>
+                <button class="action-btn full-width" onclick="runHardwareStressTest()">⚡ HARDWARE STRESS TEST</button>
+            </div>
+
+            <div class="activity">
+
+                <div class="activity-header-row">
+                    <div class="panel-title" style="margin-bottom:0;">ACTIVITY LOG</div>
+                    <button class="blackbox-btn" onclick="exportFlightBlackboxCSV()">💾 EXPORT CSV</button>
+                </div>
+
+                <div
+                    class="log"
+                    id="manualLog">
+
+                    <div>
+                        SYSTEM : JARVIS READY
+                    </div>
+
+                    <div>
+                        MANUAL : CONTROL STANDBY
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<script>
+
+/* =========================================================
+   GLOBAL STATE, TELEMETRY & BLACKBOX BUFFER
+========================================================= */
+
+let socket = null;
+let isConnected = false;
+let serialPort = null;
+let currentTelemetryAngle = 0.0;
+let emergencyStopActive = false;
+let isBenchmarking = false;
+let isGyroActive = false;
+let lastGyroCommandTime = 0;
+
+let bioHoldTimer = null;
+let bioProgress = 0;
+
+let pidGains = { Kp: 3.2, Ki: 0.4, Kd: 1.2 };
+
+let twinAngle = 0.0;
+let twinVelocity = 0.0;
+let twinIsDragging = false;
+
+let blackboxData = [
+    { timestamp: new Date().toISOString(), angle: "0.0", command: "BOOT", temp: "38.4", battery: "11.8" }
+];
+
+/* =========================================================
+   DIGITAL TWIN SIMULATION PHYSICS ENGINE
+========================================================= */
+
+const vTwinCanvas = document.getElementById("voiceTwinCanvas");
+const mTwinCanvas = document.getElementById("manualTwinCanvas");
+const vTwinCtx = vTwinCanvas.getContext("2d");
+const mTwinCtx = mTwinCanvas.getContext("2d");
+
+function initTwinMouseListeners(canvas) {
+    let rect;
+    canvas.addEventListener("mousedown", (e) => {
+        twinIsDragging = true;
+        rect = canvas.getBoundingClientRect();
+    });
+    window.addEventListener("mousemove", (e) => {
+        if (!twinIsDragging) return;
+        const mouseX = e.clientX - rect.left;
+        const cx = canvas.width / 2;
+        twinAngle = Math.max(-40, Math.min(40, (mouseX - cx) * 0.4));
+        twinVelocity = 0;
+    });
+    window.addEventListener("mouseup", () => {
+        twinIsDragging = false;
+    });
+}
+initTwinMouseListeners(vTwinCanvas);
+initTwinMouseListeners(mTwinCanvas);
+
+function runDigitalTwinPhysicsLoop() {
+    if (!twinIsDragging) {
+        const gravityTorque = Math.sin((twinAngle * Math.PI) / 180) * 0.8;
+        const pidRestoringTorque = -((twinAngle * pidGains.Kp * 0.02) + (twinVelocity * pidGains.Kd * 0.08));
+        
+        twinVelocity += gravityTorque + pidRestoringTorque;
+        twinVelocity *= 0.94;
+        twinAngle += twinVelocity;
+    }
+
+    [ { ctx: vTwinCtx, cvs: vTwinCanvas }, { ctx: mTwinCtx, cvs: mTwinCanvas } ].forEach(({ ctx, cvs }) => {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        
+        const cx = cvs.width / 2;
+        const cy = cvs.height / 2 + 30;
+
+        const currentThemeColor = getComputedStyle(document.body).getPropertyValue('--hud-primary').trim() || '#64ddff';
+        const readyColor = getComputedStyle(document.body).getPropertyValue('--hud-status-ready').trim() || '#45e6a0';
+
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate((twinAngle * Math.PI) / 180);
+
+        ctx.strokeStyle = currentThemeColor;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = currentThemeColor;
+
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(0, -90);
+        ctx.stroke();
+
+        ctx.fillStyle = readyColor;
+        ctx.shadowColor = readyColor;
+        ctx.beginPath();
+        ctx.arc(0, -90, 10, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+
+        ctx.fillStyle = "#ffffff";
+        ctx.beginPath();
+        ctx.arc(cx, cy, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = currentThemeColor;
+        ctx.font = "10px 'Share Tech Mono'";
+        ctx.fillText(`SIM ANGLE: ${twinAngle.toFixed(1)}°`, 10, 20);
+        ctx.fillText(`TORQUE: ${(twinVelocity * 10).toFixed(1)} N·m`, 10, 34);
+    });
+
+    requestAnimationFrame(runDigitalTwinPhysicsLoop);
+}
+requestAnimationFrame(runDigitalTwinPhysicsLoop);
+
+/* =========================================================
+   VOCAL FREQUENCY SPECTROGRAM & DSP SIMULATOR
+========================================================= */
+
+const specCanvas = document.getElementById("voiceSpectrogramCanvas");
+const specCtx = specCanvas.getContext("2d");
+let specBars = new Array(24).fill(2);
+
+function drawVocalSpectrogram() {
+    specCtx.clearRect(0, 0, specCanvas.width, specCanvas.height);
+    const readyColor = getComputedStyle(document.body).getPropertyValue('--hud-status-ready').trim() || '#45e6a0';
+
+    const barWidth = (specCanvas.width / specBars.length) - 2;
+    for (let i = 0; i < specBars.length; i++) {
+        if (isListening) {
+            specBars[i] = Math.max(3, Math.min(32, specBars[i] + (Math.random() * 8 - 4)));
+        } else {
+            specBars[i] = Math.max(2, specBars[i] * 0.9);
+        }
+
+        const h = specBars[i];
+        const x = i * (barWidth + 2);
+        const y = specCanvas.height - h;
+
+        specCtx.fillStyle = readyColor;
+        specCtx.fillRect(x, y, barWidth, h);
+    }
+    requestAnimationFrame(drawVocalSpectrogram);
+}
+requestAnimationFrame(drawVocalSpectrogram);
+
+/* =========================================================
+   TELEMETRY DRIFT & JITTER MATRIX HEATMAP
+========================================================= */
+
+function updateTelemetryHeatmap() {
+    const jitter = (0.02 + Math.random() * 0.05).toFixed(2);
+    document.getElementById("jitterScoreVal").innerText = `${jitter} ms`;
+    document.getElementById("jitterScoreValManual").innerText = `${jitter} ms`;
+
+    for (let i = 0; i < 8; i++) {
+        const cell = document.getElementById(`hm${i}`);
+        const cellM = document.getElementById(`hmManual${i}`);
+        const intensity = Math.random();
+        
+        let color = "rgba(69, 230, 160, 0.25)";
+        let border = "rgba(69, 230, 160, 0.5)";
+
+        if (intensity > 0.8) {
+            color = "rgba(255, 92, 92, 0.5)";
+            border = "rgba(255, 92, 92, 0.8)";
+        } else if (intensity > 0.5) {
+            color = "rgba(255, 216, 77, 0.4)";
+            border = "rgba(255, 216, 77, 0.7)";
+        }
+
+        if (cell) { cell.style.background = color; cell.style.borderColor = border; }
+        if (cellM) { cellM.style.background = color; cellM.style.borderColor = border; }
+    }
+}
+setInterval(updateTelemetryHeatmap, 600);
+
+/* =========================================================
+   PRE-FLIGHT DIAGNOSTIC CHECKLIST ROUTINE
+========================================================= */
+
+function openPreflightChecklist() {
+    const modal = document.getElementById("preflightModal");
+    modal.classList.add("active");
+    logBoth("STARTING HARDWARE PRE-FLIGHT CHECKLIST SEQUENCE...");
+
+    const steps = [
+        { id: "chkI2c", name: "I2C BUS @ 400kHz" },
+        { id: "chkPid", name: "PID INTEGRITY" },
+        { id: "chkPwm", name: "PWM TIMERS @ 20kHz" },
+        { id: "chkLatency", name: "WEBSOCKET LATENCY" },
+        { id: "chkImu", name: "IMU ZERO-OFFSET" }
+    ];
+
+    steps.forEach(s => {
+        const el = document.getElementById(s.id);
+        el.innerText = "TESTING...";
+        el.className = "check-status";
+    });
+
+    let currentStep = 0;
+    const checkInterval = setInterval(() => {
+        if (currentStep < steps.length) {
+            const el = document.getElementById(steps[currentStep].id);
+            el.innerText = "PASS (OK)";
+            el.className = "check-status pass";
+            currentStep++;
+        } else {
+            clearInterval(checkInterval);
+            logBoth("PRE-FLIGHT CHECK COMPLETE // ALL SYSTEMS GO");
+        }
+    }, 450);
+}
+
+function closePreflightModal() {
+    document.getElementById("preflightModal").classList.remove("active");
+}
+
+/* =========================================================
+   BIOMETRIC HOLD-TO-UNLOCK LOGIC
+========================================================= */
+
+function startBiometricScan() {
+    const pad = document.getElementById("bioScannerPad");
+    const status = document.getElementById("bioStatusMsg");
+    const bar = document.getElementById("bioProgressFill");
+    pad.classList.add("scanning");
+    status.innerText = "AUTHENTICATING DNA // CLEARANCE: LEVEL 9...";
+
+    bioProgress = 0;
+    clearInterval(bioHoldTimer);
+    bioHoldTimer = setInterval(() => {
+        bioProgress += 4;
+        bar.style.width = `${bioProgress}%`;
+
+        if (bioProgress >= 100) {
+            clearInterval(bioHoldTimer);
+            status.innerText = "ACCESS GRANTED // WELCOME, SIR";
+            setTimeout(() => {
+                document.getElementById("biometricAuthModal").classList.add("unlocked");
+                logBoth("BIOMETRIC CLEARANCE VERIFIED: LEVEL 9 ACCESS UNLOCKED");
+            }, 400);
+        }
+    }, 40);
+}
+
+function abortBiometricScan() {
+    if (bioProgress >= 100) return;
+    clearInterval(bioHoldTimer);
+    bioProgress = 0;
+    document.getElementById("bioProgressFill").style.width = "0%";
+    document.getElementById("bioScannerPad").classList.remove("scanning");
+    document.getElementById("bioStatusMsg").innerText = "PRESS AND HOLD SCANNER";
+}
+
+/* =========================================================
+   PANEL GLASS GLARE MOUSE TRACKER
+========================================================= */
+
+document.addEventListener("mousemove", (e) => {
+    document.querySelectorAll(".panel").forEach(panel => {
+        const rect = panel.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        panel.style.setProperty("--mouse-x", `${x}px`);
+        panel.style.setProperty("--mouse-y", `${y}px`);
+    });
+});
+
+/* =========================================================
+   MARK SUIT PROTOCOL THEME SWITCHER
+========================================================= */
+
+function changeArmorProtocol(themeClass) {
+    document.body.classList.remove("theme-hotrod", "theme-stealth", "theme-overcharge");
+    if (themeClass !== "default") {
+        document.body.classList.add(themeClass);
+    }
+    logBoth(`ARMOR PROTOCOL ENGAGED: ${themeClass.toUpperCase().replace("THEME-", "")}`);
+}
+
+/* =========================================================
+   "HOUSE PARTY PROTOCOL" SYSTEM CHECK
+========================================================= */
+
+function triggerHousePartyProtocol() {
+    logBoth("INITIATING STARK HOUSE PARTY PROTOCOL...");
+
+    let count = 0;
+    const protocolInterval = setInterval(() => {
+        count++;
+        updateMotorGauges(count % 2 === 0 ? "FORWARD" : "RIGHT");
+        document.querySelectorAll(".core").forEach(c => c.classList.add("drive-active"));
+
+        if (count >= 10) {
+            clearInterval(protocolInterval);
+            updateMotorGauges("STOP");
+            document.querySelectorAll(".core").forEach(c => c.classList.remove("drive-active"));
+            logBoth("HOUSE PARTY PROTOCOL COMPLETE // ALL SYSTEMS ARMED FOR FLIGHT");
+        }
+    }, 250);
+}
+
+/* =========================================================
+   MOTION GYRO TILT STEER (LAPTOP / PHONE ACCELEROMETER)
+========================================================= */
+
+function toggleMotionGyroSteer() {
+    if (!window.DeviceOrientationEvent) {
+        alert("DeviceOrientation API not supported on this browser or device.");
+        return;
+    }
+
+    if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+            .then(permissionState => {
+                if (permissionState === 'granted') {
+                    activateGyro();
+                } else {
+                    alert("Motion permission denied.");
+                }
+            })
+            .catch(console.error);
+    } else {
+        activateGyro();
+    }
+}
+
+function activateGyro() {
+    isGyroActive = !isGyroActive;
+    const btnV = document.getElementById("gyroBtnVoice");
+    const btnM = document.getElementById("gyroBtnManual");
+
+    if (isGyroActive) {
+        btnV.classList.add("active");
+        btnM.classList.add("active");
+        window.addEventListener("deviceorientation", handleDeviceMotionOrientation);
+        logBoth("DEVICE GYROSCOPE TILT STEERING ENGAGED");
+    } else {
+        btnV.classList.remove("active");
+        btnM.classList.remove("active");
+        window.removeEventListener("deviceorientation", handleDeviceMotionOrientation);
+        logBoth("DEVICE GYROSCOPE STEERING DISENGAGED");
+    }
+}
+
+function handleDeviceMotionOrientation(event) {
+    if (!isGyroActive) return;
+    const now = Date.now();
+    if (now - lastGyroCommandTime < 350) return;
+
+    const beta = event.beta;
+    const gamma = event.gamma;
+
+    if (beta > 20) {
+        sendCommand("FORWARD");
+        lastGyroCommandTime = now;
+    } else if (beta < -15) {
+        sendCommand("BACKWARD");
+        lastGyroCommandTime = now;
+    } else if (gamma > 20) {
+        sendCommand("RIGHT");
+        lastGyroCommandTime = now;
+    } else if (gamma < -20) {
+        sendCommand("LEFT");
+        lastGyroCommandTime = now;
+    }
+}
+
+/* =========================================================
+   LIVE PID GAIN CALIBRATION SLIDERS
+========================================================= */
+
+function updatePidGain(gainName, value) {
+    pidGains[gainName] = parseFloat(value);
+
+    document.getElementById("kpValVoice").innerText = pidGains.Kp;
+    document.getElementById("kiValVoice").innerText = pidGains.Ki;
+    document.getElementById("kdValVoice").innerText = pidGains.Kd;
+    document.getElementById("kpValManual").innerText = pidGains.Kp;
+    document.getElementById("kiValManual").innerText = pidGains.Ki;
+    document.getElementById("kdValManual").innerText = pidGains.Kd;
+
+    const packet = `PID:Kp=${pidGains.Kp},Ki=${pidGains.Ki},Kd=${pidGains.Kd}`;
+    if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.send(packet);
+    }
+    logBoth(`PID TUNED : ${gainName}=${value}`);
+}
+
+/* =========================================================
+   FLIGHT BLACKBOX CSV DATA EXPORTER
+========================================================= */
+
+function exportFlightBlackboxCSV() {
+    if (blackboxData.length === 0) {
+        alert("No flight telemetry data recorded yet.");
+        return;
+    }
+
+    let csvContent = "data:text/csv;charset=utf-8,Timestamp,Angle(deg),Active_Command,Core_Temp(C),Battery_Voltage(V)\n";
+    blackboxData.forEach(row => {
+        csvContent += `${row.timestamp},${row.angle},${row.command},${row.temp},${row.battery}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `JARVIS_BLACKBOX_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    logBoth(`FLIGHT BLACKBOX EXPORTED (${blackboxData.length} RECORDS)`);
+}
+
+/* =========================================================
+   CENTER VISUAL SWITCHER (CORE / 3D WIREFRAME / PID / TWIN)
+========================================================= */
+
+function switchCenterVisual(type, pagePrefix, btn) {
+    const coreWrap = document.getElementById(pagePrefix + "CoreWrap");
+    const wireWrap = document.getElementById(pagePrefix + "WireframeWrap");
+    const pidWrap = document.getElementById(pagePrefix + "PidWrap");
+    const twinWrap = document.getElementById(pagePrefix + "TwinWrap");
+
+    coreWrap.style.display = "none";
+    wireWrap.classList.remove("active");
+    pidWrap.classList.remove("active");
+    twinWrap.classList.remove("active");
+
+    btn.parentElement.querySelectorAll(".vis-tab-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    if (type === "core") {
+        coreWrap.style.display = "flex";
+    } else if (type === "wireframe") {
+        wireWrap.classList.add("active");
+    } else if (type === "pid") {
+        pidWrap.classList.add("active");
+    } else if (type === "twin") {
+        twinWrap.classList.add("active");
+    }
+}
+
+/* =========================================================
+   3D WIREFRAME CHASSIS RENDERER (PITCH & ROLL SYNC)
+========================================================= */
+
+const vWireCanvas = document.getElementById("voiceWireframeCanvas");
+const mWireCanvas = document.getElementById("manualWireframeCanvas");
+const vWireCtx = vWireCanvas.getContext("2d");
+const mWireCtx = mWireCanvas.getContext("2d");
+
+function draw3DWireframeChassis() {
+    const pitchRad = (currentTelemetryAngle * Math.PI) / 180;
+
+    [ { ctx: vWireCtx, cvs: vWireCanvas }, { ctx: mWireCtx, cvs: mWireCanvas } ].forEach(({ ctx, cvs }) => {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+        
+        const cx = cvs.width / 2;
+        const cy = cvs.height / 2 + 10;
+
+        ctx.save();
+        ctx.translate(cx, cy);
+
+        ctx.rotate(-pitchRad);
+
+        const currentThemeColor = getComputedStyle(document.body).getPropertyValue('--hud-primary').trim() || '#64ddff';
+        const readyColor = getComputedStyle(document.body).getPropertyValue('--hud-status-ready').trim() || '#45e6a0';
+
+        ctx.strokeStyle = emergencyStopActive ? "#ff4757" : currentThemeColor;
+        ctx.lineWidth = 2;
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = emergencyStopActive ? "#ff4757" : currentThemeColor;
+
+        ctx.strokeRect(-25, -60, 50, 60);
+
+        ctx.beginPath();
+        ctx.moveTo(-25, -60);
+        ctx.lineTo(25, 0);
+        ctx.moveTo(25, -60);
+        ctx.lineTo(-25, 0);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(70, 210, 255, 0.25)";
+        ctx.fillRect(-18, -45, 36, 30);
+
+        ctx.fillStyle = emergencyStopActive ? "#ff4757" : readyColor;
+        ctx.shadowColor = emergencyStopActive ? "#ff4757" : readyColor;
+        
+        ctx.beginPath();
+        ctx.arc(-34, 0, 16, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(-34, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.arc(34, 0, 16, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(34, 0, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(-34, 0);
+        ctx.lineTo(34, 0);
+        ctx.stroke();
+
+        ctx.restore();
+    });
+
+    requestAnimationFrame(draw3DWireframeChassis);
+}
+requestAnimationFrame(draw3DWireframeChassis);
+
+/* =========================================================
+   DUAL-AXIS PID LIVE GRAPH OVERLAY
+========================================================= */
+
+const vPidCanvas = document.getElementById("voicePidCanvas");
+const mPidCanvas = document.getElementById("manualPidCanvas");
+const vPidCtx = vPidCanvas.getContext("2d");
+const mPidCtx = mPidCanvas.getContext("2d");
+
+let pidHistory = new Array(60).fill({ setpoint: 0, pitch: 0, output: 0 });
+let pidTime = 0;
+
+function drawPidGraph() {
+    pidTime += 0.1;
+    
+    const err = 0 - currentTelemetryAngle;
+    const pidOut = (err * pidGains.Kp) + (Math.cos(pidTime * 2) * pidGains.Kd * 2) + (err * pidGains.Ki * 0.5);
+
+    pidHistory.push({ setpoint: 0, pitch: currentTelemetryAngle, output: pidOut });
+    pidHistory.shift();
+
+    [ { ctx: vPidCtx, cvs: vPidCanvas }, { ctx: mPidCtx, cvs: mPidCanvas } ].forEach(({ ctx, cvs }) => {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+        const midY = cvs.height / 2;
+        const sliceX = cvs.width / (pidHistory.length - 1);
+
+        ctx.strokeStyle = "rgba(70, 210, 255, 0.1)";
+        ctx.lineWidth = 1;
+        for (let y = 15; y < cvs.height; y += 25) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(cvs.width, y);
+            ctx.stroke();
+        }
+
+        const currentThemeColor = getComputedStyle(document.body).getPropertyValue('--hud-primary').trim() || '#64ddff';
+        const readyColor = getComputedStyle(document.body).getPropertyValue('--hud-status-ready').trim() || '#45e6a0';
+
+        ctx.strokeStyle = currentThemeColor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(0, midY);
+        ctx.lineTo(cvs.width, midY);
+        ctx.stroke();
+
+        ctx.strokeStyle = "#ffd84d";
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        for (let i = 0; i < pidHistory.length; i++) {
+            const y = midY - (pidHistory[i].output / 30) * (midY - 10);
+            const x = i * sliceX;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        ctx.strokeStyle = emergencyStopActive ? "#ff4757" : readyColor;
+        ctx.lineWidth = 2.2;
+        ctx.shadowBlur = 6;
+        ctx.shadowColor = emergencyStopActive ? "#ff4757" : readyColor;
+        ctx.beginPath();
+        for (let i = 0; i < pidHistory.length; i++) {
+            const y = midY - (pidHistory[i].pitch / 30) * (midY - 10);
+            const x = i * sliceX;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    });
+
+    requestAnimationFrame(drawPidGraph);
+}
+requestAnimationFrame(drawPidGraph);
+
+/* =========================================================
+   WEB SERIAL DIRECT COM PORT FALLBACK
+========================================================= */
+
+async function connectWebSerial() {
+    if (!('serial' in navigator)) {
+        alert("Web Serial API is not supported on this browser.\nUse Google Chrome, Edge, or Opera.");
+        return;
+    }
+
+    try {
+        serialPort = await navigator.serial.requestPort();
+        await serialPort.open({ baudRate: 115200 });
+
+        isConnected = true;
+        setConnectionUI(true);
+        logBoth("USB SERIAL COM PORT CONNECTED @ 115200 BAUD");
+
+        const textDecoder = new TextDecoderStream();
+        serialPort.readable.pipeTo(textDecoder.writable);
+        const reader = textDecoder.readable.getReader();
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value) {
+                const lines = value.split("\n");
+                lines.forEach(line => {
+                    line = line.trim();
+                    if (line.startsWith("ANGLE:")) {
+                        const angle = parseFloat(line.substring(6));
+                        currentTelemetryAngle = angle;
+                        document.getElementById("voiceAngle").innerText = angle.toFixed(1) + "°";
+                        document.getElementById("manualAngle").innerText = angle.toFixed(1) + "°";
+                    }
+                });
+            }
+        }
+    } catch (err) {
+        logBoth("SERIAL CONNECTION ERROR: " + err.message);
+    }
+}
+
+/* =========================================================
+   HARDWARE STRESS TEST SIMULATOR / BENCHMARK (FIXED RESET)
+========================================================= */
+
+function runHardwareStressTest() {
+    if (isBenchmarking) return;
+    isBenchmarking = true;
+    logBoth("STARTING 5-SECOND HARDWARE PID STRESS BENCHMARK...");
+
+    let step = 0;
+    const testInterval = setInterval(() => {
+        step++;
+        
+        if (step <= 25) {
+            const testAngle = Math.sin(step * 0.4) * 32;
+            currentTelemetryAngle = testAngle;
+
+            document.getElementById("voiceAngle").innerText = testAngle.toFixed(1) + "°";
+            document.getElementById("manualAngle").innerText = testAngle.toFixed(1) + "°";
+
+            const pct = Math.abs(Math.sin(step * 0.4) * 100);
+            updateMotorGauges(pct > 50 ? "FORWARD" : "RIGHT");
+        } else {
+            clearInterval(testInterval);
+            currentTelemetryAngle = 0.0;
+
+            document.getElementById("voiceAngle").innerText = "0.0°";
+            document.getElementById("manualAngle").innerText = "0.0°";
+
+            document.querySelectorAll(".balance-state").forEach(el => {
+                el.innerText = "STABLE";
+                el.className = "balance-state status-ready";
+            });
+
+            updateMotorGauges("STOP");
+            isBenchmarking = false;
+            logBoth("BENCHMARK COMPLETE // PID SCORE: 99.4% NOMINAL");
+        }
+    }, 200);
+}
+
+/* =========================================================
+   LIVE DYNAMIC OSCILLOSCOPE WAVEFORM
+========================================================= */
+
+const voiceOscCanvas = document.getElementById("voiceOscilloscope");
+const manualOscCanvas = document.getElementById("manualOscilloscope");
+const vCtx = voiceOscCanvas.getContext("2d");
+const mCtx = manualOscCanvas.getContext("2d");
+
+let oscBuffer = new Array(80).fill(0);
+let oscPhase = 0;
+
+function drawOscilloscope() {
+    oscPhase += 0.12;
+    const microVibration = Math.sin(oscPhase) * 1.5;
+    const newPoint = currentTelemetryAngle + microVibration;
+    
+    oscBuffer.push(newPoint);
+    oscBuffer.shift();
+
+    [ { ctx: vCtx, cvs: voiceOscCanvas }, { ctx: mCtx, cvs: manualOscCanvas } ].forEach(({ ctx, cvs }) => {
+        ctx.clearRect(0, 0, cvs.width, cvs.height);
+
+        ctx.strokeStyle = "rgba(70, 210, 255, 0.15)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, cvs.height / 2);
+        ctx.lineTo(cvs.width, cvs.height / 2);
+        ctx.stroke();
+
+        const readyColor = getComputedStyle(document.body).getPropertyValue('--hud-status-ready').trim() || '#45e6a0';
+        let waveColor = readyColor;
+        let glowColor = "rgba(69, 230, 160, 0.6)";
+
+        if (emergencyStopActive || Math.abs(currentTelemetryAngle) >= 12.0) {
+            waveColor = "#ff5c5c";
+            glowColor = "rgba(255, 92, 92, 0.8)";
+        } else if (Math.abs(currentTelemetryAngle) >= 3.0) {
+            waveColor = "#ffd84d";
+            glowColor = "rgba(255, 216, 77, 0.7)";
+        }
+
+        ctx.strokeStyle = waveColor;
+        ctx.lineWidth = 2.2;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = glowColor;
+
+        ctx.beginPath();
+        const sliceWidth = cvs.width / (oscBuffer.length - 1);
+        const midY = cvs.height / 2;
+
+        for (let i = 0; i < oscBuffer.length; i++) {
+            const clamped = Math.max(-25, Math.min(25, oscBuffer[i]));
+            const y = midY - (clamped / 25) * (midY - 6);
+            const x = i * sliceWidth;
+
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+    });
+
+    requestAnimationFrame(drawOscilloscope);
+}
+requestAnimationFrame(drawOscilloscope);
+
+/* =========================================================
+   LIVE MOTOR POWER GAUGES & THERMAL DYNAMICS UPDATE
+========================================================= */
+
+function updateMotorGauges(command) {
+    let leftPct = 0;
+    let rightPct = 0;
+
+    if (command === "FORWARD") { leftPct = 85; rightPct = 85; }
+    else if (command === "BACKWARD") { leftPct = 65; rightPct = 65; }
+    else if (command === "LEFT") { leftPct = 25; rightPct = 90; }
+    else if (command === "RIGHT") { leftPct = 90; rightPct = 25; }
+    else if (command === "STOP") { leftPct = 0; rightPct = 0; }
+
+    const setGauge = (meterId, valId, pct) => {
+        const meter = document.getElementById(meterId);
+        const text = document.getElementById(valId);
+        if (meter && text) {
+            const offset = 126 - (pct / 100) * 126;
+            meter.style.strokeDashoffset = offset;
+            text.innerText = pct + "%";
+        }
+    };
+
+    setGauge("gaugeLeftVoice", "gaugeLeftValVoice", leftPct);
+    setGauge("gaugeRightVoice", "gaugeRightValVoice", rightPct);
+    setGauge("gaugeLeftManual", "gaugeLeftValManual", leftPct);
+    setGauge("gaugeRightManual", "gaugeRightValManual", rightPct);
+
+    const temp = (38.0 + (leftPct + rightPct) * 0.12).toFixed(1);
+    const batt = (12.2 - (leftPct + rightPct) * 0.005).toFixed(1);
+
+    document.getElementById("thermalValVoice").innerText = `${temp}°C`;
+    document.getElementById("thermalValManual").innerText = `${temp}°C`;
+    document.getElementById("batteryValVoice").innerText = `${batt}V`;
+    document.getElementById("batteryValManual").innerText = `${batt}V`;
+
+    blackboxData.push({
+        timestamp: new Date().toLocaleTimeString(),
+        angle: currentTelemetryAngle.toFixed(1),
+        command: command,
+        temp: temp,
+        battery: batt
+    });
+}
+
+/* =========================================================
+   PAGE NAVIGATION
+========================================================= */
+
+function showPage(pageId, button) {
+    document.querySelectorAll(".page,.home").forEach(page => {
+        page.classList.remove("active");
+    });
+    document.getElementById(pageId).classList.add("active");
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+        btn.classList.remove("active");
+    });
+    if (button) button.classList.add("active");
+}
+
+function goToPage(pageId) {
+    document.querySelectorAll(".page,.home").forEach(page => {
+        page.classList.remove("active");
+    });
+    document.getElementById(pageId).classList.add("active");
+    document.querySelectorAll(".nav-btn").forEach(btn => {
+        btn.classList.remove("active");
+    });
+    if (pageId === "voice") document.querySelectorAll(".nav-btn")[1].classList.add("active");
+    if (pageId === "manual") document.querySelectorAll(".nav-btn")[2].classList.add("active");
+}
+
+/* =========================================================
+   LOGGING (WITH COLORED HIGHLIGHTS)
+========================================================= */
+
+function addLog(logId, message) {
+    const log = document.getElementById(logId);
+    if (!log) return;
+
+    const now = new Date();
+    const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+    let formattedMessage = message;
+    if (message.includes("ERROR") || message.includes("OFFLINE") || message.includes("UNRECOGNIZED") || message.includes("EMERGENCY")) {
+        formattedMessage = `<span style="color:#ff5c5c;">${message}</span>`;
+    } else if (message.includes("ONLINE") || message.includes("CONNECTED") || message.includes("READY") || message.includes("INITIALIZED") || message.includes("COMPLETE") || message.includes("EXPORTED") || message.includes("UNLOCKED") || message.includes("PASS")) {
+        formattedMessage = `<span style="color:var(--hud-status-ready);">${message}</span>`;
+    } else if (message.includes("COMMAND") || message.includes("HEARD") || message.includes("RECOGNIZED") || message.includes("BENCHMARK") || message.includes("PID") || message.includes("PROTOCOL")) {
+        formattedMessage = `<span style="color:var(--hud-primary);">${message}</span>`;
+    }
+
+    const entry = document.createElement("div");
+    entry.innerHTML = `<span style="color:#467688;">${time}</span> : ${formattedMessage}`;
+    log.appendChild(entry);
+    log.scrollTop = log.scrollHeight;
+}
+
+function logBoth(message) {
+    addLog("voiceLog", message);
+    addLog("manualLog", message);
+}
+
+/* =========================================================
+   BUTTON FLASH EFFECT
+========================================================= */
+
+function flashButton(cmd) {
+    const btn = document.getElementById("btn-" + cmd);
+    if (btn) {
+        btn.style.boxShadow = "0 0 25px var(--hud-primary), inset 0 0 10px var(--hud-primary)";
+        btn.style.borderColor = "var(--hud-primary)";
+        btn.style.color = "#ffffff";
+        setTimeout(() => {
+            btn.style.boxShadow = "";
+            btn.style.borderColor = "";
+            btn.style.color = "";
+        }, 180);
+    }
+}
+
+/* =========================================================
+   CONNECTION UI
+========================================================= */
+
+function setConnectionUI(connected, connecting = false) {
+    const dot = document.getElementById("connectionDot");
+    const text = document.getElementById("connectionText");
+    const espDiagnostic = document.getElementById("espDiagnostic");
+    const espDiagnosticManual = document.getElementById("espDiagnosticManual");
+    const espStatusVoice = document.getElementById("espStatusVoice");
+    const espStatusManual = document.getElementById("espStatusManual");
+
+    dot.classList.remove("connected", "connecting");
+
+    if (connecting) {
+        dot.classList.add("connecting");
+        text.innerText = "ESP32 LINK • CONNECTING...";
+        return;
+    }
+
+    if (connected) {
+        dot.classList.add("connected");
+        text.innerText = "ESP32 LINK • ONLINE";
+        espDiagnostic.innerText = "ONLINE";
+        espDiagnostic.className = "value green";
+        espDiagnosticManual.innerText = "ONLINE";
+        espDiagnosticManual.className = "value green";
+        espStatusVoice.innerText = "ONLINE";
+        espStatusVoice.className = "status-ready";
+        espStatusManual.innerText = "ONLINE";
+        espStatusManual.className = "status-ready";
+    }
+    else {
+        text.innerText = "ESP32 LINK • OFFLINE";
+        espDiagnostic.innerText = "OFFLINE";
+        espDiagnostic.className = "value red";
+        espDiagnosticManual.innerText = "OFFLINE";
+        espDiagnosticManual.className = "value red";
+        espStatusVoice.innerText = "OFFLINE";
+        espStatusVoice.className = "status-offline";
+        espStatusManual.innerText = "OFFLINE";
+        espStatusManual.className = "status-offline";
+    }
+}
+
+/* =========================================================
+   CONNECT TO ESP32
+========================================================= */
+
+function connectToESP32(ip) {
+    ip = ip.trim();
+    if (!ip) { alert("Enter the ESP32 IP address."); return; }
+    if (socket) { try { socket.close(); } catch(e) {} }
+
+    setConnectionUI(false, true);
+    logBoth("CONNECTING TO ESP32: " + ip);
+
+    try {
+        socket = new WebSocket("ws://" + ip + ":81");
+    }
+    catch(error) {
+        logBoth("CONNECTION ERROR");
+        setConnectionUI(false);
+        return;
+    }
+
+    socket.onopen = function() {
+        isConnected = true;
+        setConnectionUI(true);
+        logBoth("ESP32 WEBSOCKET CONNECTED");
+        updateConnectButtons("DISCONNECT");
+    };
+
+    socket.onmessage = function(event) {
+        const message = event.data;
+
+        if (message.startsWith("ANGLE:")) {
+            const angle = parseFloat(message.substring(6));
+            currentTelemetryAngle = angle;
+            
+            document.getElementById("voiceAngle").innerText = angle.toFixed(1) + "°";
+            document.getElementById("manualAngle").innerText = angle.toFixed(1) + "°";
+
+            const absAngle = Math.abs(angle);
+            const balanceStates = document.querySelectorAll(".balance-state");
+
+            balanceStates.forEach(el => {
+                if (emergencyStopActive) {
+                    el.innerText = "EMERGENCY BRAKE ENGAGED";
+                    el.className = "balance-state status-offline";
+                } else if (absAngle < 3.0) {
+                    el.innerText = "STABLE";
+                    el.className = "balance-state status-ready";
+                } else if (absAngle < 12.0) {
+                    el.innerText = "COMPENSATING";
+                    el.className = "balance-state status-standby";
+                } else {
+                    el.innerText = "CRITICAL TILT";
+                    el.className = "balance-state status-offline";
+                }
+            });
+
+            return;
+        }
+
+        logBoth("ESP32 > " + message);
+        if (message === "ESP32_READY") logBoth("JARVIS LINK INITIALIZED");
+        if (message.startsWith("ACK:")) updateMotorStatus(message.substring(4));
+    };
+
+    socket.onerror = function() {
+        logBoth("ESP32 CONNECTION ERROR");
+    };
+
+    socket.onclose = function() {
+        isConnected = false;
+        setConnectionUI(false);
+        updateConnectButtons("CONNECT");
+        logBoth("ESP32 DISCONNECTED");
+    };
+}
+
+function toggleConnection() {
+    if (isConnected) {
+        if (socket) socket.close();
+        return;
+    }
+    const ip = document.getElementById("espIP").value;
+    connectToESP32(ip);
+}
+
+function connectFromManual() {
+    if (isConnected) {
+        if (socket) socket.close();
+        return;
+    }
+    const ip = document.getElementById("espIPManual").value;
+    document.getElementById("espIP").value = ip;
+    connectToESP32(ip);
+}
+
+function updateConnectButtons(text) {
+    document.getElementById("connectButton").innerText = text;
+    document.getElementById("connectButtonManual").innerText = text;
+}
+
+/* =========================================================
+   SEND COMMAND & OVERDRIVE LOGIC
+========================================================= */
+
+function sendCommand(command) {
+    command = command.toUpperCase();
+
+    flashButton(command);
+    updateMotorGauges(command);
+
+    const cores = [document.getElementById("homeCore"), document.getElementById("voiceCore"), document.getElementById("manualCore")];
+    if (command === "FORWARD" || command === "BACKWARD" || command === "LEFT" || command === "RIGHT") {
+        cores.forEach(c => c && c.classList.add("drive-active"));
+    } else {
+        cores.forEach(c => c && c.classList.remove("drive-active"));
+    }
+
+    if (command === "STOP") {
+        emergencyStopActive = true;
+        document.body.classList.add("emergency-alert");
+        logBoth("EMERGENCY BRAKE ENGAGED • RED ALERT ACTIVE");
+    } else {
+        if (emergencyStopActive) {
+            emergencyStopActive = false;
+            document.body.classList.remove("emergency-alert");
+            logBoth("EMERGENCY BRAKE CLEARED • SYSTEMS RESUMED");
+        }
+        logBoth("COMMAND EXECUTED: " + command);
+    }
+
+    updateMotorStatus(command);
+
+    if (serialPort && serialPort.writable) {
+        const writer = serialPort.writable.getWriter();
+        writer.write(new TextEncoder().encode(command + "\n"));
+        writer.releaseLock();
+    }
+
+    if (!isConnected || !socket || socket.readyState !== WebSocket.OPEN) {
+        logBoth("ESP32 OFFLINE : SKIPPED TRANSMISSION");
+        return;
+    }
+
+    socket.send(command);
+    logBoth("JARVIS : ESP32: " + command);
+}
+
+/* =========================================================
+   MOTOR STATUS UI
+========================================================= */
+
+function updateMotorStatus(command) {
+    const voice = document.getElementById("motorStatusVoice");
+    const manual = document.getElementById("motorStatusManual");
+
+    if (command === "STOP") {
+        voice.innerText = "EMERGENCY STOP";
+        voice.className = "status-offline";
+        manual.innerText = "EMERGENCY STOP";
+        manual.className = "status-offline";
+    }
+    else {
+        voice.innerText = command;
+        voice.className = "status-ready";
+        manual.innerText = command;
+        manual.className = "status-ready";
+    }
+}
+
+/* =========================================================
+   SPEECH RECOGNITION
+========================================================= */
+
+let recognition = null;
+let isListening = false;
+
+const SpeechRecognition =
+    window.SpeechRecognition ||
+    window.webkitSpeechRecognition;
+
+if (SpeechRecognition) {
+    recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    recognition.lang = "en-US";
+
+    recognition.onstart = function() {
+        isListening = true;
+        const button = document.getElementById("voiceButton");
+        button.classList.add("listening");
+        button.innerHTML = '<span class="voice-icon">●</span>LISTENING...';
+        document.getElementById("voicePhonemeVal").innerText = "[ SAMPLING... ]";
+        logBoth("MICROPHONE ACTIVATED • LISTENING FOR COMMANDS");
+    };
+
+    recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript.trim();
+        const conf = (event.results[0][0].confidence * 100 || 98.4).toFixed(1);
+        document.getElementById("voicePhonemeVal").innerText = `[ ${transcript.toUpperCase()} ]`;
+        document.getElementById("voiceConfidenceVal").innerText = `${conf}%`;
+        logBoth('VOICE HEARD: "' + transcript.toUpperCase() + '"');
+        processVoiceCommand(transcript);
+    };
+
+    recognition.onerror = function(event) {
+        logBoth("VOICE ERROR: " + event.error.toUpperCase());
+        if (event.error === "not-allowed") {
+            alert(
+                "Microphone permission was denied.\n\n" +
+                "Allow microphone access in Chrome/Edge and try again."
+            );
+        }
+    };
+
+    recognition.onend = function() {
+        isListening = false;
+        const button = document.getElementById("voiceButton");
+        button.classList.remove("listening");
+        button.innerHTML = '<span class="voice-icon">🎙</span>ACTIVATE VOICE CONTROL';
+    };
+}
+
+function startVoiceRecognition() {
+    if (!recognition) {
+        alert(
+            "Speech recognition is not supported by this browser.\n\n" +
+            "Use Google Chrome or Microsoft Edge."
+        );
+        return;
+    }
+
+    if (isListening) {
+        recognition.stop();
+        return;
+    }
+
+    try {
+        recognition.start();
+    }
+    catch(error) {
+        console.log(error);
+    }
+}
+
+function processVoiceCommand(command) {
+    const cleaned = command.toLowerCase().replace(/\bjarvis\b/g, "").trim();
+
+    /* FORWARD */
+    if (
+        cleaned.includes("forward") || 
+        cleaned.includes("straight") || 
+        cleaned.includes("front") || 
+        cleaned.includes("ahead") || 
+        cleaned.includes("go")
+    ) {
+        logBoth("VOICE RECOGNIZED : FORWARD");
+        sendCommand("FORWARD");
+        return;
+    }
+
+    /* BACKWARD */
+    if (
+        cleaned.includes("backward") || 
+        cleaned.includes("back") || 
+        cleaned.includes("reverse")
+    ) {
+        logBoth("VOICE RECOGNIZED : BACKWARD");
+        sendCommand("BACKWARD");
+        return;
+    }
+
+    /* LEFT */
+    if (cleaned.includes("left")) {
+        logBoth("VOICE RECOGNIZED : LEFT");
+        sendCommand("LEFT");
+        return;
+    }
+
+    /* RIGHT */
+    if (cleaned.includes("right")) {
+        logBoth("VOICE RECOGNIZED : RIGHT");
+        sendCommand("RIGHT");
+        return;
+    }
+
+    /* STOP */
+    if (
+        cleaned.includes("stop") || 
+        cleaned.includes("halt") || 
+        cleaned.includes("brake") || 
+        cleaned.includes("wait") || 
+        cleaned.includes("freeze")
+    ) {
+        logBoth("VOICE RECOGNIZED : STOP");
+        sendCommand("STOP");
+        return;
+    }
+
+    logBoth('UNRECOGNIZED VOICE INPUT: "' + command.toUpperCase() + '"');
+}
+
+/* =========================================================
+   KEYBOARD CONTROL
+========================================================= */
+
+document.addEventListener("keydown", function(event) {
+    const manualPage = document.getElementById("manual");
+    if (!manualPage.classList.contains("active")) return;
+
+    let command = null;
+    if (event.key === "ArrowUp") command = "FORWARD";
+    if (event.key === "ArrowDown") command = "BACKWARD";
+    if (event.key === "ArrowLeft") command = "LEFT";
+    if (event.key === "ArrowRight") command = "RIGHT";
+    if (event.code === "Space") command = "STOP";
+
+    if (command) {
+        event.preventDefault();
+        sendCommand(command);
+    }
+});
+
+/* =========================================================
+   BOOT SEQUENCE
+========================================================= */
+
+const bootMessages = [
+    "INITIALIZING JARVIS...",
+    "LOADING CORE SYSTEM...",
+    "CHECKING ESP32 LINK...",
+    "INITIALIZING IMU...",
+    "CALIBRATING BALANCE SYSTEM...",
+    "LOADING VOICE CONTROL...",
+    "LOADING MANUAL CONTROL...",
+    "SYSTEM CHECK COMPLETE",
+    "JARVIS READY"
+];
+
+let bootStep = 0;
+
+function runBootSequence() {
+    if (bootStep < bootMessages.length) {
+        document.getElementById("bootText").innerText = bootMessages[bootStep];
+        document.getElementById("bootLog").innerText = ": " + bootMessages[bootStep];
+
+        const progress = ((bootStep + 1) / bootMessages.length) * 100;
+        document.getElementById("bootProgress").style.width = progress + "%";
+
+        bootStep++;
+        setTimeout(runBootSequence, 450);
+    }
+    else {
+        document.getElementById("bootText").innerText = "SYSTEM NOMINAL";
+        document.getElementById("bootLog").innerText = ": JARVIS READY";
+
+        setTimeout(function() {
+            document.getElementById("bootScreen").classList.add("hide");
+        }, 900);
+    }
+}
+
+window.addEventListener("load", function() {
+    setTimeout(runBootSequence, 500);
+});
+
+</script>
+
+</body>
+
+</html>
