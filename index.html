@@ -75,7 +75,7 @@ body.theme-overcharge {
 }
 
 /* =========================================================
-   GLOBAL
+   GLOBAL (ORIGINAL RESTORED)
 ========================================================= */
 
 * {
@@ -99,7 +99,7 @@ body {
     transition: background 0.45s ease;
 }
 
-/* Static Cyan Grid Background (Original Restored) */
+/* Static Cyan Grid Background */
 body::before {
     content: "";
     position: fixed;
@@ -2984,6 +2984,20 @@ let blackboxData = [
 ];
 
 /* =========================================================
+   STARK SPEECH SYNTHESIS (TEXT-TO-SPEECH VOICE FEEDBACK)
+========================================================= */
+
+function speakJarvis(text) {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 0.85; // Robotic AI tone
+        window.speechSynthesis.speak(utterance);
+    }
+}
+
+/* =========================================================
    DIGITAL TWIN SIMULATION PHYSICS ENGINE
 ========================================================= */
 
@@ -3138,6 +3152,7 @@ function openPreflightChecklist() {
     const modal = document.getElementById("preflightModal");
     modal.classList.add("active");
     logBoth("STARTING HARDWARE PRE-FLIGHT CHECKLIST SEQUENCE...");
+    speakJarvis("Running pre-flight diagnostics, sir.");
 
     const steps = [
         { id: "chkI2c", name: "I2C BUS @ 400kHz" },
@@ -3163,6 +3178,7 @@ function openPreflightChecklist() {
         } else {
             clearInterval(checkInterval);
             logBoth("PRE-FLIGHT CHECK COMPLETE // ALL SYSTEMS GO");
+            speakJarvis("All systems nominal.");
         }
     }, 450);
 }
@@ -3191,6 +3207,7 @@ function startBiometricScan() {
         if (bioProgress >= 100) {
             clearInterval(bioHoldTimer);
             status.innerText = "ACCESS GRANTED // WELCOME, SIR";
+            speakJarvis("welcome home sir.");
             setTimeout(() => {
                 document.getElementById("biometricAuthModal").classList.add("unlocked");
                 logBoth("BIOMETRIC CLEARANCE VERIFIED: LEVEL 9 ACCESS UNLOCKED");
@@ -3232,28 +3249,40 @@ function changeArmorProtocol(themeClass) {
         document.body.classList.add(themeClass);
     }
     logBoth(`ARMOR PROTOCOL ENGAGED: ${themeClass.toUpperCase().replace("THEME-", "")}`);
+    speakJarvis(`Protocol ${themeClass.replace("theme-", "")} engaged.`);
 }
 
 /* =========================================================
-   "HOUSE PARTY PROTOCOL" SYSTEM CHECK
+   "HOUSE PARTY PROTOCOL" (SAYS REAL COMMANDS & SENDS SIGNALS)
 ========================================================= */
 
 function triggerHousePartyProtocol() {
     logBoth("INITIATING STARK HOUSE PARTY PROTOCOL...");
+    speakJarvis("Initiating House Party protocol.");
 
-    let count = 0;
+    const routineSequence = ["FORWARD", "RIGHT", "BACKWARD", "LEFT", "FORWARD", "STOP"];
+    let stepIndex = 0;
+
     const protocolInterval = setInterval(() => {
-        count++;
-        updateMotorGauges(count % 2 === 0 ? "FORWARD" : "RIGHT");
-        document.querySelectorAll(".core").forEach(c => c.classList.add("drive-active"));
+        if (stepIndex < routineSequence.length) {
+            const currentCmd = routineSequence[stepIndex];
+            
+            currentTelemetryAngle = (stepIndex % 2 === 0) ? 8.5 : -5.2;
+            document.getElementById("voiceAngle").innerText = currentTelemetryAngle.toFixed(1) + "°";
+            document.getElementById("manualAngle").innerText = currentTelemetryAngle.toFixed(1) + "°";
 
-        if (count >= 10) {
+            sendCommand(currentCmd);
+            stepIndex++;
+        } else {
             clearInterval(protocolInterval);
-            updateMotorGauges("STOP");
-            document.querySelectorAll(".core").forEach(c => c.classList.remove("drive-active"));
+            currentTelemetryAngle = 0.0;
+            document.getElementById("voiceAngle").innerText = "0.0°";
+            document.getElementById("manualAngle").innerText = "0.0°";
+            sendCommand("STOP");
             logBoth("HOUSE PARTY PROTOCOL COMPLETE // ALL SYSTEMS ARMED FOR FLIGHT");
+            speakJarvis("House party protocol complete.");
         }
-    }, 250);
+    }, 500);
 }
 
 /* =========================================================
@@ -3291,6 +3320,7 @@ function activateGyro() {
         btnM.classList.add("active");
         window.addEventListener("deviceorientation", handleDeviceMotionOrientation);
         logBoth("DEVICE GYROSCOPE TILT STEERING ENGAGED");
+        speakJarvis("Gyro tilt steering active.");
     } else {
         btnV.classList.remove("active");
         btnM.classList.remove("active");
@@ -3367,6 +3397,7 @@ function exportFlightBlackboxCSV() {
     document.body.removeChild(link);
 
     logBoth(`FLIGHT BLACKBOX EXPORTED (${blackboxData.length} RECORDS)`);
+    speakJarvis("Flight data exported.");
 }
 
 /* =========================================================
@@ -3563,6 +3594,7 @@ async function connectWebSerial() {
         isConnected = true;
         setConnectionUI(true);
         logBoth("USB SERIAL COM PORT CONNECTED @ 115200 BAUD");
+        speakJarvis("Serial link connected.");
 
         const textDecoder = new TextDecoderStream();
         serialPort.readable.pipeTo(textDecoder.writable);
@@ -3590,27 +3622,28 @@ async function connectWebSerial() {
 }
 
 /* =========================================================
-   HARDWARE STRESS TEST SIMULATOR / BENCHMARK (FIXED RESET)
+   HARDWARE STRESS TEST SIMULATOR (NOW SENDS REAL COMMANDS)
 ========================================================= */
+
+const stressSequence = ["FORWARD", "BACKWARD", "LEFT", "RIGHT", "FORWARD", "STOP"];
 
 function runHardwareStressTest() {
     if (isBenchmarking) return;
     isBenchmarking = true;
     logBoth("STARTING 5-SECOND HARDWARE PID STRESS BENCHMARK...");
+    speakJarvis("Running hardware stress test.");
 
     let step = 0;
     const testInterval = setInterval(() => {
-        step++;
-        
-        if (step <= 25) {
-            const testAngle = Math.sin(step * 0.4) * 32;
-            currentTelemetryAngle = testAngle;
+        if (step < stressSequence.length) {
+            const stressCmd = stressSequence[step];
+            
+            currentTelemetryAngle = Math.sin(step * 1.2) * 15.0;
+            document.getElementById("voiceAngle").innerText = currentTelemetryAngle.toFixed(1) + "°";
+            document.getElementById("manualAngle").innerText = currentTelemetryAngle.toFixed(1) + "°";
 
-            document.getElementById("voiceAngle").innerText = testAngle.toFixed(1) + "°";
-            document.getElementById("manualAngle").innerText = testAngle.toFixed(1) + "°";
-
-            const pct = Math.abs(Math.sin(step * 0.4) * 100);
-            updateMotorGauges(pct > 50 ? "FORWARD" : "RIGHT");
+            sendCommand(stressCmd);
+            step++;
         } else {
             clearInterval(testInterval);
             currentTelemetryAngle = 0.0;
@@ -3623,11 +3656,12 @@ function runHardwareStressTest() {
                 el.className = "balance-state status-ready";
             });
 
-            updateMotorGauges("STOP");
+            sendCommand("STOP");
             isBenchmarking = false;
             logBoth("BENCHMARK COMPLETE // PID SCORE: 99.4% NOMINAL");
+            speakJarvis("Stress benchmark complete.");
         }
-    }, 200);
+    }, 450);
 }
 
 /* =========================================================
@@ -3744,7 +3778,7 @@ function updateMotorGauges(command) {
 }
 
 /* =========================================================
-   PAGE NAVIGATION
+   PAGE NAVIGATION WITH MODE VOICE ANNOUNCEMENT
 ========================================================= */
 
 function showPage(pageId, button) {
@@ -3756,6 +3790,12 @@ function showPage(pageId, button) {
         btn.classList.remove("active");
     });
     if (button) button.classList.add("active");
+
+    if (pageId === "manual") {
+        speakJarvis("Manual mode engaged.");
+    } else if (pageId === "voice") {
+        speakJarvis("Voice control mode engaged.");
+    }
 }
 
 function goToPage(pageId) {
@@ -3766,8 +3806,14 @@ function goToPage(pageId) {
     document.querySelectorAll(".nav-btn").forEach(btn => {
         btn.classList.remove("active");
     });
-    if (pageId === "voice") document.querySelectorAll(".nav-btn")[1].classList.add("active");
-    if (pageId === "manual") document.querySelectorAll(".nav-btn")[2].classList.add("active");
+    if (pageId === "voice") {
+        document.querySelectorAll(".nav-btn")[1].classList.add("active");
+        speakJarvis("Voice control mode engaged.");
+    }
+    if (pageId === "manual") {
+        document.querySelectorAll(".nav-btn")[2].classList.add("active");
+        speakJarvis("Manual mode engaged.");
+    }
 }
 
 /* =========================================================
@@ -3850,6 +3896,7 @@ function setConnectionUI(connected, connecting = false) {
         espStatusVoice.className = "status-ready";
         espStatusManual.innerText = "ONLINE";
         espStatusManual.className = "status-ready";
+        speakJarvis("NodeMCU link online.");
     }
     else {
         text.innerText = "ESP32 LINK • OFFLINE";
@@ -3966,7 +4013,7 @@ function updateConnectButtons(text) {
 }
 
 /* =========================================================
-   SEND COMMAND & OVERDRIVE LOGIC
+   SEND COMMAND & VOICE FEEDBACK
 ========================================================= */
 
 function sendCommand(command) {
@@ -3986,6 +4033,7 @@ function sendCommand(command) {
         emergencyStopActive = true;
         document.body.classList.add("emergency-alert");
         logBoth("EMERGENCY BRAKE ENGAGED • RED ALERT ACTIVE");
+        speakJarvis("Emergency stop engaged.");
     } else {
         if (emergencyStopActive) {
             emergencyStopActive = false;
@@ -3993,6 +4041,11 @@ function sendCommand(command) {
             logBoth("EMERGENCY BRAKE CLEARED • SYSTEMS RESUMED");
         }
         logBoth("COMMAND EXECUTED: " + command);
+
+        if (command === "FORWARD") speakJarvis("Jarvis moving forward.");
+        else if (command === "BACKWARD") speakJarvis("Jarvis reversing.");
+        else if (command === "LEFT") speakJarvis("Turning left.");
+        else if (command === "RIGHT") speakJarvis("Turning right.");
     }
 
     updateMotorStatus(command);
@@ -4059,6 +4112,7 @@ if (SpeechRecognition) {
         button.innerHTML = '<span class="voice-icon">●</span>LISTENING...';
         document.getElementById("voicePhonemeVal").innerText = "[ SAMPLING... ]";
         logBoth("MICROPHONE ACTIVATED • LISTENING FOR COMMANDS");
+        speakJarvis("Listening, sir.");
     };
 
     recognition.onresult = function(event) {
@@ -4072,12 +4126,6 @@ if (SpeechRecognition) {
 
     recognition.onerror = function(event) {
         logBoth("VOICE ERROR: " + event.error.toUpperCase());
-        if (event.error === "not-allowed") {
-            alert(
-                "Microphone permission was denied.\n\n" +
-                "Allow microphone access in Chrome/Edge and try again."
-            );
-        }
     };
 
     recognition.onend = function() {
@@ -4090,10 +4138,7 @@ if (SpeechRecognition) {
 
 function startVoiceRecognition() {
     if (!recognition) {
-        alert(
-            "Speech recognition is not supported by this browser.\n\n" +
-            "Use Google Chrome or Microsoft Edge."
-        );
+        alert("Speech recognition is not supported by this browser. Use Google Chrome or Microsoft Edge.");
         return;
     }
 
@@ -4113,52 +4158,27 @@ function startVoiceRecognition() {
 function processVoiceCommand(command) {
     const cleaned = command.toLowerCase().replace(/\bjarvis\b/g, "").trim();
 
-    /* FORWARD */
-    if (
-        cleaned.includes("forward") || 
-        cleaned.includes("straight") || 
-        cleaned.includes("front") || 
-        cleaned.includes("ahead") || 
-        cleaned.includes("go")
-    ) {
+    if (cleaned.includes("forward") || cleaned.includes("straight") || cleaned.includes("front") || cleaned.includes("ahead") || cleaned.includes("go")) {
         logBoth("VOICE RECOGNIZED : FORWARD");
         sendCommand("FORWARD");
         return;
     }
-
-    /* BACKWARD */
-    if (
-        cleaned.includes("backward") || 
-        cleaned.includes("back") || 
-        cleaned.includes("reverse")
-    ) {
+    if (cleaned.includes("backward") || cleaned.includes("back") || cleaned.includes("reverse")) {
         logBoth("VOICE RECOGNIZED : BACKWARD");
         sendCommand("BACKWARD");
         return;
     }
-
-    /* LEFT */
     if (cleaned.includes("left")) {
         logBoth("VOICE RECOGNIZED : LEFT");
         sendCommand("LEFT");
         return;
     }
-
-    /* RIGHT */
     if (cleaned.includes("right")) {
         logBoth("VOICE RECOGNIZED : RIGHT");
         sendCommand("RIGHT");
         return;
     }
-
-    /* STOP */
-    if (
-        cleaned.includes("stop") || 
-        cleaned.includes("halt") || 
-        cleaned.includes("brake") || 
-        cleaned.includes("wait") || 
-        cleaned.includes("freeze")
-    ) {
+    if (cleaned.includes("stop") || cleaned.includes("halt") || cleaned.includes("brake") || cleaned.includes("wait") || cleaned.includes("freeze")) {
         logBoth("VOICE RECOGNIZED : STOP");
         sendCommand("STOP");
         return;
@@ -4220,6 +4240,7 @@ function runBootSequence() {
     else {
         document.getElementById("bootText").innerText = "SYSTEM NOMINAL";
         document.getElementById("bootLog").innerText = ": JARVIS READY";
+        speakJarvis("Jarvis system online.");
 
         setTimeout(function() {
             document.getElementById("bootScreen").classList.add("hide");
