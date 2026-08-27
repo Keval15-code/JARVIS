@@ -5,7 +5,7 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>J.A.R.V.I.S. Robot Control</title>
+<title>J.A.R.V.I.S. Robot Control - ESP32</title>
 
 <!-- Google Fonts for High-Tech HUD Styling -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -74,8 +74,22 @@ body.theme-overcharge {
     --hud-status-ready: #df72ff;
 }
 
+body.theme-blueprint {
+    --hud-primary: #64ffda;
+    --hud-glow: rgba(100, 255, 218, 0.8);
+    --hud-glow-dim: rgba(100, 255, 218, 0.2);
+    --hud-panel-border: rgba(100, 255, 218, 0.4);
+    --hud-panel-bg1: rgba(10, 25, 47, 0.92);
+    --hud-panel-bg2: rgba(2, 12, 27, 0.9);
+    --hud-bg-center: #0a192f;
+    --hud-bg-mid: #020c1b;
+    --hud-bg-edge: #010409;
+    --hud-grid: rgba(100, 255, 218, 0.06);
+    --hud-status-ready: #64ffda;
+}
+
 /* =========================================================
-   GLOBAL (ORIGINAL RESTORED)
+   GLOBAL
 ========================================================= */
 
 * {
@@ -99,7 +113,6 @@ body {
     transition: background 0.45s ease;
 }
 
-/* Static Cyan Grid Background */
 body::before {
     content: "";
     position: fixed;
@@ -306,34 +319,40 @@ body::before {
 body.emergency-alert {
     background: radial-gradient(
         circle at center,
-        #421010 0%,
-        #1f0606 45%,
-        #0b0202 100%
+        #520f0f 0%,
+        #240707 45%,
+        #0d0202 100%
     ) !important;
+    animation: redAlertFlash 1s infinite alternate;
+}
+
+@keyframes redAlertFlash {
+    0% { box-shadow: inset 0 0 0px rgba(255, 0, 0, 0); }
+    100% { box-shadow: inset 0 0 80px rgba(255, 50, 50, 0.45); }
 }
 
 body.emergency-alert .panel {
-    border-color: rgba(255, 70, 70, 0.45) !important;
-    background: linear-gradient(145deg, rgba(52, 14, 14, 0.9), rgba(23, 4, 4, 0.88)) !important;
-    box-shadow: 0 15px 50px rgba(255, 0, 0, 0.25) !important;
+    border-color: rgba(255, 70, 70, 0.7) !important;
+    background: linear-gradient(145deg, rgba(62, 14, 14, 0.92), rgba(27, 4, 4, 0.9)) !important;
+    box-shadow: 0 15px 50px rgba(255, 0, 0, 0.4) !important;
 }
 
 body.emergency-alert .panel-title,
 body.emergency-alert .header-brand h1,
 body.emergency-alert .control-title {
-    color: #ff5c5c !important;
-    text-shadow: 0 0 18px rgba(255, 70, 70, 0.8) !important;
+    color: #ff4757 !important;
+    text-shadow: 0 0 20px rgba(255, 71, 87, 0.9) !important;
 }
 
 body.emergency-alert .core-light {
     background: radial-gradient(circle, #ffffff 0%, #ff4757 25%, #a80000 65%, #1a0000 100%) !important;
-    box-shadow: 0 0 35px #ff4757, 0 0 80px rgba(255, 0, 0, 0.8), inset 0 0 25px #ffffff !important;
+    box-shadow: 0 0 45px #ff4757, 0 0 90px rgba(255, 0, 0, 0.9), inset 0 0 25px #ffffff !important;
 }
 
 body.emergency-alert .ring1,
 body.emergency-alert .ring2,
 body.emergency-alert .ring3 {
-    border-color: rgba(255, 80, 80, 0.7) !important;
+    border-color: rgba(255, 80, 80, 0.8) !important;
 }
 
 body.emergency-alert .gauge-meter {
@@ -859,6 +878,62 @@ nav {
     text-shadow: 0 0 10px var(--hud-glow-dim);
     position: relative;
     z-index: 2;
+}
+
+/* =========================================================
+   STARK HUD TARGETING RETICLE & LOCK-ON OVERLAY
+========================================================= */
+
+.hud-reticle {
+    position: absolute;
+    inset: 12px;
+    border: 1px dashed var(--hud-panel-border);
+    pointer-events: none;
+    opacity: 0.4;
+    z-index: 1;
+    transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.hud-reticle::before,
+.hud-reticle::after {
+    content: "◈";
+    position: absolute;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 14px;
+    color: var(--hud-primary);
+}
+
+.hud-reticle::before { top: -6px; left: -6px; }
+.hud-reticle::after { bottom: -6px; right: -6px; }
+
+/* Lock-on Target State when Emergency Stop / Space is triggered */
+body.emergency-alert .hud-reticle {
+    border: 2px solid #ff4757;
+    box-shadow: inset 0 0 15px rgba(255, 71, 87, 0.6);
+    animation: reticlePulse 0.4s infinite alternate;
+}
+
+@keyframes reticlePulse {
+    0% { opacity: 0.6; }
+    100% { opacity: 1; }
+}
+
+.lock-on-banner {
+    position: absolute;
+    bottom: 10px;
+    left: 14px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: #ff4757;
+    font-weight: 700;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 5;
+}
+
+body.emergency-alert .lock-on-banner {
+    opacity: 1;
 }
 
 /* =========================================================
@@ -1856,6 +1931,7 @@ nav {
             <option value="theme-hotrod">MK-III HOTROD RED/GOLD</option>
             <option value="theme-stealth">MK-VII STEALTH MATRIX</option>
             <option value="theme-overcharge">HULKBUSTER OVERCHARGE</option>
+            <option value="theme-blueprint">MK-I STARK BLUEPRINT CAD</option>
         </select>
     </div>
 
@@ -2000,6 +2076,8 @@ nav {
 
         <div class="panel diagnostics">
             <div class="panel-glare"></div>
+            <div class="hud-reticle"></div>
+            <div class="lock-on-banner">TARGET ACQUIRED // LOCKED</div>
 
             <div class="panel-title">
                 DIAGNOSTICS
@@ -2198,6 +2276,8 @@ nav {
 
         <div class="panel control-center">
             <div class="panel-glare"></div>
+            <div class="hud-reticle"></div>
+            <div class="lock-on-banner">TARGET ACQUIRED // LOCKED</div>
 
             <div class="control-title">
                 VOICE CONTROL
@@ -2316,7 +2396,7 @@ nav {
                         class="ip-input"
                         id="espIP"
                         type="text"
-                        value="192.168.1.100"
+                        value="192.168.4.1"
                         placeholder="ESP32 IP address">
 
                     <button
@@ -2355,6 +2435,8 @@ nav {
 
         <div class="panel command-console">
             <div class="panel-glare"></div>
+            <div class="hud-reticle"></div>
+            <div class="lock-on-banner">TARGET ACQUIRED // LOCKED</div>
 
             <div class="panel-title">
                 VOICE COMMANDS
@@ -2471,6 +2553,8 @@ nav {
 
         <div class="panel diagnostics">
             <div class="panel-glare"></div>
+            <div class="hud-reticle"></div>
+            <div class="lock-on-banner">TARGET ACQUIRED // LOCKED</div>
 
             <div class="panel-title">
                 DIAGNOSTICS
@@ -2666,6 +2750,8 @@ nav {
 
         <div class="panel control-center">
             <div class="panel-glare"></div>
+            <div class="hud-reticle"></div>
+            <div class="lock-on-banner">TARGET ACQUIRED // LOCKED</div>
 
             <div class="control-title">
                 MANUAL CONTROL
@@ -2770,7 +2856,7 @@ nav {
                         class="ip-input"
                         id="espIPManual"
                         type="text"
-                        value="192.168.1.100"
+                        value="192.168.4.1"
                         placeholder="ESP32 IP address">
 
                     <button
@@ -2853,6 +2939,8 @@ nav {
 
         <div class="panel command-console">
             <div class="panel-glare"></div>
+            <div class="hud-reticle"></div>
+            <div class="lock-on-banner">TARGET ACQUIRED // LOCKED</div>
 
             <div class="panel-title">
                 MANUAL COMMANDS
@@ -2982,20 +3070,6 @@ let twinIsDragging = false;
 let blackboxData = [
     { timestamp: new Date().toISOString(), angle: "0.0", command: "BOOT", temp: "38.4", battery: "11.8" }
 ];
-
-/* =========================================================
-   STARK SPEECH SYNTHESIS (TEXT-TO-SPEECH VOICE FEEDBACK)
-========================================================= */
-
-function speakJarvis(text) {
-    if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.rate = 1.05;
-        utterance.pitch = 0.85; // Robotic AI tone
-        window.speechSynthesis.speak(utterance);
-    }
-}
 
 /* =========================================================
    DIGITAL TWIN SIMULATION PHYSICS ENGINE
@@ -3152,7 +3226,6 @@ function openPreflightChecklist() {
     const modal = document.getElementById("preflightModal");
     modal.classList.add("active");
     logBoth("STARTING HARDWARE PRE-FLIGHT CHECKLIST SEQUENCE...");
-    speakJarvis("Running pre-flight diagnostics, sir.");
 
     const steps = [
         { id: "chkI2c", name: "I2C BUS @ 400kHz" },
@@ -3178,7 +3251,6 @@ function openPreflightChecklist() {
         } else {
             clearInterval(checkInterval);
             logBoth("PRE-FLIGHT CHECK COMPLETE // ALL SYSTEMS GO");
-            speakJarvis("All systems nominal.");
         }
     }, 450);
 }
@@ -3207,7 +3279,6 @@ function startBiometricScan() {
         if (bioProgress >= 100) {
             clearInterval(bioHoldTimer);
             status.innerText = "ACCESS GRANTED // WELCOME, SIR";
-            speakJarvis("welcome home sir.");
             setTimeout(() => {
                 document.getElementById("biometricAuthModal").classList.add("unlocked");
                 logBoth("BIOMETRIC CLEARANCE VERIFIED: LEVEL 9 ACCESS UNLOCKED");
@@ -3244,21 +3315,19 @@ document.addEventListener("mousemove", (e) => {
 ========================================================= */
 
 function changeArmorProtocol(themeClass) {
-    document.body.classList.remove("theme-hotrod", "theme-stealth", "theme-overcharge");
+    document.body.classList.remove("theme-hotrod", "theme-stealth", "theme-overcharge", "theme-blueprint");
     if (themeClass !== "default") {
         document.body.classList.add(themeClass);
     }
     logBoth(`ARMOR PROTOCOL ENGAGED: ${themeClass.toUpperCase().replace("THEME-", "")}`);
-    speakJarvis(`Protocol ${themeClass.replace("theme-", "")} engaged.`);
 }
 
 /* =========================================================
-   "HOUSE PARTY PROTOCOL" (SAYS REAL COMMANDS & SENDS SIGNALS)
+   "HOUSE PARTY PROTOCOL"
 ========================================================= */
 
 function triggerHousePartyProtocol() {
     logBoth("INITIATING STARK HOUSE PARTY PROTOCOL...");
-    speakJarvis("Initiating House Party protocol.");
 
     const routineSequence = ["FORWARD", "RIGHT", "BACKWARD", "LEFT", "FORWARD", "STOP"];
     let stepIndex = 0;
@@ -3280,13 +3349,12 @@ function triggerHousePartyProtocol() {
             document.getElementById("manualAngle").innerText = "0.0°";
             sendCommand("STOP");
             logBoth("HOUSE PARTY PROTOCOL COMPLETE // ALL SYSTEMS ARMED FOR FLIGHT");
-            speakJarvis("House party protocol complete.");
         }
     }, 500);
 }
 
 /* =========================================================
-   MOTION GYRO TILT STEER (LAPTOP / PHONE ACCELEROMETER)
+   MOTION GYRO TILT STEER
 ========================================================= */
 
 function toggleMotionGyroSteer() {
@@ -3320,7 +3388,6 @@ function activateGyro() {
         btnM.classList.add("active");
         window.addEventListener("deviceorientation", handleDeviceMotionOrientation);
         logBoth("DEVICE GYROSCOPE TILT STEERING ENGAGED");
-        speakJarvis("Gyro tilt steering active.");
     } else {
         btnV.classList.remove("active");
         btnM.classList.remove("active");
@@ -3397,11 +3464,10 @@ function exportFlightBlackboxCSV() {
     document.body.removeChild(link);
 
     logBoth(`FLIGHT BLACKBOX EXPORTED (${blackboxData.length} RECORDS)`);
-    speakJarvis("Flight data exported.");
 }
 
 /* =========================================================
-   CENTER VISUAL SWITCHER (CORE / 3D WIREFRAME / PID / TWIN)
+   CENTER VISUAL SWITCHER
 ========================================================= */
 
 function switchCenterVisual(type, pagePrefix, btn) {
@@ -3430,7 +3496,7 @@ function switchCenterVisual(type, pagePrefix, btn) {
 }
 
 /* =========================================================
-   3D WIREFRAME CHASSIS RENDERER (PITCH & ROLL SYNC)
+   3D WIREFRAME CHASSIS RENDERER
 ========================================================= */
 
 const vWireCanvas = document.getElementById("voiceWireframeCanvas");
@@ -3449,7 +3515,6 @@ function draw3DWireframeChassis() {
 
         ctx.save();
         ctx.translate(cx, cy);
-
         ctx.rotate(-pitchRad);
 
         const currentThemeColor = getComputedStyle(document.body).getPropertyValue('--hud-primary').trim() || '#64ddff';
@@ -3594,7 +3659,6 @@ async function connectWebSerial() {
         isConnected = true;
         setConnectionUI(true);
         logBoth("USB SERIAL COM PORT CONNECTED @ 115200 BAUD");
-        speakJarvis("Serial link connected.");
 
         const textDecoder = new TextDecoderStream();
         serialPort.readable.pipeTo(textDecoder.writable);
@@ -3622,7 +3686,7 @@ async function connectWebSerial() {
 }
 
 /* =========================================================
-   HARDWARE STRESS TEST SIMULATOR (NOW SENDS REAL COMMANDS)
+   HARDWARE STRESS TEST SIMULATOR
 ========================================================= */
 
 const stressSequence = ["FORWARD", "BACKWARD", "LEFT", "RIGHT", "FORWARD", "STOP"];
@@ -3631,7 +3695,6 @@ function runHardwareStressTest() {
     if (isBenchmarking) return;
     isBenchmarking = true;
     logBoth("STARTING 5-SECOND HARDWARE PID STRESS BENCHMARK...");
-    speakJarvis("Running hardware stress test.");
 
     let step = 0;
     const testInterval = setInterval(() => {
@@ -3659,7 +3722,6 @@ function runHardwareStressTest() {
             sendCommand("STOP");
             isBenchmarking = false;
             logBoth("BENCHMARK COMPLETE // PID SCORE: 99.4% NOMINAL");
-            speakJarvis("Stress benchmark complete.");
         }
     }, 450);
 }
@@ -3778,7 +3840,7 @@ function updateMotorGauges(command) {
 }
 
 /* =========================================================
-   PAGE NAVIGATION WITH MODE VOICE ANNOUNCEMENT
+   PAGE NAVIGATION
 ========================================================= */
 
 function showPage(pageId, button) {
@@ -3790,12 +3852,6 @@ function showPage(pageId, button) {
         btn.classList.remove("active");
     });
     if (button) button.classList.add("active");
-
-    if (pageId === "manual") {
-        speakJarvis("Manual mode engaged.");
-    } else if (pageId === "voice") {
-        speakJarvis("Voice control mode engaged.");
-    }
 }
 
 function goToPage(pageId) {
@@ -3806,18 +3862,12 @@ function goToPage(pageId) {
     document.querySelectorAll(".nav-btn").forEach(btn => {
         btn.classList.remove("active");
     });
-    if (pageId === "voice") {
-        document.querySelectorAll(".nav-btn")[1].classList.add("active");
-        speakJarvis("Voice control mode engaged.");
-    }
-    if (pageId === "manual") {
-        document.querySelectorAll(".nav-btn")[2].classList.add("active");
-        speakJarvis("Manual mode engaged.");
-    }
+    if (pageId === "voice") document.querySelectorAll(".nav-btn")[1].classList.add("active");
+    if (pageId === "manual") document.querySelectorAll(".nav-btn")[2].classList.add("active");
 }
 
 /* =========================================================
-   LOGGING (WITH COLORED HIGHLIGHTS)
+   LOGGING
 ========================================================= */
 
 function addLog(logId, message) {
@@ -3828,7 +3878,7 @@ function addLog(logId, message) {
     const time = now.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 
     let formattedMessage = message;
-    if (message.includes("ERROR") || message.includes("OFFLINE") || message.includes("UNRECOGNIZED") || message.includes("EMERGENCY")) {
+    if (message.includes("ERROR") || message.includes("OFFLINE") || message.includes("UNRECOGNIZED") || message.includes("EMERGENCY") || message.includes("CRITICAL")) {
         formattedMessage = `<span style="color:#ff5c5c;">${message}</span>`;
     } else if (message.includes("ONLINE") || message.includes("CONNECTED") || message.includes("READY") || message.includes("INITIALIZED") || message.includes("COMPLETE") || message.includes("EXPORTED") || message.includes("UNLOCKED") || message.includes("PASS")) {
         formattedMessage = `<span style="color:var(--hud-status-ready);">${message}</span>`;
@@ -3896,7 +3946,6 @@ function setConnectionUI(connected, connecting = false) {
         espStatusVoice.className = "status-ready";
         espStatusManual.innerText = "ONLINE";
         espStatusManual.className = "status-ready";
-        speakJarvis("NodeMCU link online.");
     }
     else {
         text.innerText = "ESP32 LINK • OFFLINE";
@@ -3912,7 +3961,7 @@ function setConnectionUI(connected, connecting = false) {
 }
 
 /* =========================================================
-   CONNECT TO ESP32
+   CONNECT TO ESP32 (WEBSOCKET & TACTICAL ALERT MONITOR)
 ========================================================= */
 
 function connectToESP32(ip) {
@@ -3924,10 +3973,10 @@ function connectToESP32(ip) {
     logBoth("CONNECTING TO ESP32: " + ip);
 
     try {
-        socket = new WebSocket("ws://" + ip + ":81");
+        socket = new WebSocket("ws://" + ip + ":81/");
     }
     catch(error) {
-        logBoth("CONNECTION ERROR");
+        logBoth("CONNECTION ERROR: " + error);
         setConnectionUI(false);
         return;
     }
@@ -3935,8 +3984,9 @@ function connectToESP32(ip) {
     socket.onopen = function() {
         isConnected = true;
         setConnectionUI(true);
-        logBoth("ESP32 WEBSOCKET CONNECTED");
+        logBoth("ESP32 WEBSOCKET LINK ESTABLISHED SUCCESSFULLY");
         updateConnectButtons("DISCONNECT");
+        socket.send("HEARTBEAT_PING");
     };
 
     socket.onmessage = function(event) {
@@ -3951,6 +4001,18 @@ function connectToESP32(ip) {
 
             const absAngle = Math.abs(angle);
             const balanceStates = document.querySelectorAll(".balance-state");
+
+            if (absAngle >= 12.0) {
+                if (!document.body.classList.contains("emergency-alert")) {
+                    document.body.classList.add("emergency-alert");
+                    logBoth(`⚠️ WARNING: CRITICAL TILT DETECTED (${angle.toFixed(1)}°) // RED ALERT ENGAGED`);
+                }
+            } else {
+                if (document.body.classList.contains("emergency-alert") && !emergencyStopActive) {
+                    document.body.classList.remove("emergency-alert");
+                    logBoth("STATUS NOMINAL: TILT RESTORED TO STABLE ZONE");
+                }
+            }
 
             balanceStates.forEach(el => {
                 if (emergencyStopActive) {
@@ -3976,15 +4038,15 @@ function connectToESP32(ip) {
         if (message.startsWith("ACK:")) updateMotorStatus(message.substring(4));
     };
 
-    socket.onerror = function() {
-        logBoth("ESP32 CONNECTION ERROR");
+    socket.onerror = function(event) {
+        logBoth("ESP32 WEBSOCKET ERROR // CHECK IP & NETWORK");
     };
 
     socket.onclose = function() {
         isConnected = false;
         setConnectionUI(false);
         updateConnectButtons("CONNECT");
-        logBoth("ESP32 DISCONNECTED");
+        logBoth("ESP32 CONNECTION CLOSED");
     };
 }
 
@@ -4013,7 +4075,7 @@ function updateConnectButtons(text) {
 }
 
 /* =========================================================
-   SEND COMMAND & VOICE FEEDBACK
+   SEND COMMAND & SIGNAL TRANSMISSION
 ========================================================= */
 
 function sendCommand(command) {
@@ -4033,19 +4095,13 @@ function sendCommand(command) {
         emergencyStopActive = true;
         document.body.classList.add("emergency-alert");
         logBoth("EMERGENCY BRAKE ENGAGED • RED ALERT ACTIVE");
-        speakJarvis("Emergency stop engaged.");
     } else {
-        if (emergencyStopActive) {
+        if (emergencyStopActive && Math.abs(currentTelemetryAngle) < 12.0) {
             emergencyStopActive = false;
             document.body.classList.remove("emergency-alert");
             logBoth("EMERGENCY BRAKE CLEARED • SYSTEMS RESUMED");
         }
         logBoth("COMMAND EXECUTED: " + command);
-
-        if (command === "FORWARD") speakJarvis("Jarvis moving forward.");
-        else if (command === "BACKWARD") speakJarvis("Jarvis reversing.");
-        else if (command === "LEFT") speakJarvis("Turning left.");
-        else if (command === "RIGHT") speakJarvis("Turning right.");
     }
 
     updateMotorStatus(command);
@@ -4057,12 +4113,12 @@ function sendCommand(command) {
     }
 
     if (!isConnected || !socket || socket.readyState !== WebSocket.OPEN) {
-        logBoth("ESP32 OFFLINE : SKIPPED TRANSMISSION");
+        logBoth("ESP32 OFFLINE : SKIPPED SIGNAL TRANSMISSION");
         return;
     }
 
     socket.send(command);
-    logBoth("JARVIS : ESP32: " + command);
+    logBoth("TRANSMITTING SIGNAL TO ESP32: " + command);
 }
 
 /* =========================================================
@@ -4112,7 +4168,6 @@ if (SpeechRecognition) {
         button.innerHTML = '<span class="voice-icon">●</span>LISTENING...';
         document.getElementById("voicePhonemeVal").innerText = "[ SAMPLING... ]";
         logBoth("MICROPHONE ACTIVATED • LISTENING FOR COMMANDS");
-        speakJarvis("Listening, sir.");
     };
 
     recognition.onresult = function(event) {
@@ -4126,6 +4181,12 @@ if (SpeechRecognition) {
 
     recognition.onerror = function(event) {
         logBoth("VOICE ERROR: " + event.error.toUpperCase());
+        if (event.error === "not-allowed") {
+            alert(
+                "Microphone permission was denied.\n\n" +
+                "Allow microphone access in Chrome/Edge and try again."
+            );
+        }
     };
 
     recognition.onend = function() {
@@ -4138,7 +4199,10 @@ if (SpeechRecognition) {
 
 function startVoiceRecognition() {
     if (!recognition) {
-        alert("Speech recognition is not supported by this browser. Use Google Chrome or Microsoft Edge.");
+        alert(
+            "Speech recognition is not supported by this browser.\n\n" +
+            "Use Google Chrome or Microsoft Edge."
+        );
         return;
     }
 
@@ -4158,27 +4222,47 @@ function startVoiceRecognition() {
 function processVoiceCommand(command) {
     const cleaned = command.toLowerCase().replace(/\bjarvis\b/g, "").trim();
 
-    if (cleaned.includes("forward") || cleaned.includes("straight") || cleaned.includes("front") || cleaned.includes("ahead") || cleaned.includes("go")) {
+    if (
+        cleaned.includes("forward") || 
+        cleaned.includes("straight") || 
+        cleaned.includes("front") || 
+        cleaned.includes("ahead") || 
+        cleaned.includes("go")
+    ) {
         logBoth("VOICE RECOGNIZED : FORWARD");
         sendCommand("FORWARD");
         return;
     }
-    if (cleaned.includes("backward") || cleaned.includes("back") || cleaned.includes("reverse")) {
+
+    if (
+        cleaned.includes("backward") || 
+        cleaned.includes("back") || 
+        cleaned.includes("reverse")
+    ) {
         logBoth("VOICE RECOGNIZED : BACKWARD");
         sendCommand("BACKWARD");
         return;
     }
+
     if (cleaned.includes("left")) {
         logBoth("VOICE RECOGNIZED : LEFT");
         sendCommand("LEFT");
         return;
     }
+
     if (cleaned.includes("right")) {
         logBoth("VOICE RECOGNIZED : RIGHT");
         sendCommand("RIGHT");
         return;
     }
-    if (cleaned.includes("stop") || cleaned.includes("halt") || cleaned.includes("brake") || cleaned.includes("wait") || cleaned.includes("freeze")) {
+
+    if (
+        cleaned.includes("stop") || 
+        cleaned.includes("halt") || 
+        cleaned.includes("brake") || 
+        cleaned.includes("wait") || 
+        cleaned.includes("freeze")
+    ) {
         logBoth("VOICE RECOGNIZED : STOP");
         sendCommand("STOP");
         return;
@@ -4240,7 +4324,6 @@ function runBootSequence() {
     else {
         document.getElementById("bootText").innerText = "SYSTEM NOMINAL";
         document.getElementById("bootLog").innerText = ": JARVIS READY";
-        speakJarvis("Jarvis system online.");
 
         setTimeout(function() {
             document.getElementById("bootScreen").classList.add("hide");
